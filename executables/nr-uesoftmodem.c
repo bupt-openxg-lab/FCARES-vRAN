@@ -292,6 +292,7 @@ void init_openair0()
     if (get_nrUE_params()->usrp_args) openair0_cfg[card].sdr_addrs = get_nrUE_params()->usrp_args;
     if (get_nrUE_params()->tx_subdev) openair0_cfg[card].tx_subdev = get_nrUE_params()->tx_subdev;
     if (get_nrUE_params()->rx_subdev) openair0_cfg[card].rx_subdev = get_nrUE_params()->rx_subdev;
+    if (get_nrUE_params()->oxgrf_args) openair0_cfg[card].sdr_addrs = get_nrUE_params()->oxgrf_args;
 
   }
 }

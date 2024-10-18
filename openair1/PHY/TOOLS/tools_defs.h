@@ -39,6 +39,7 @@
 #include <simde/x86/sse.h>
 #include <simde/x86/avx2.h>
 #include "common/utils/LOG/log.h"
+#include <string.h>
 
 #define simd_q15_t simde__m128i
 #define shiftright_int16(a,shift) simde_mm_srai_epi16(a,shift)
@@ -168,9 +169,13 @@ extern "C" {
     };
   }
 
+
+
   __attribute__((always_inline)) inline uint32_t c16toI32(const c16_t a) {
-    return *((uint32_t*)&a);
-  }
+    uint32_t result;
+    memcpy(&result, &a, sizeof(result));
+    return result;
+}
 
   __attribute__((always_inline)) inline c16_t c16swap(const c16_t a) {
     return (c16_t){

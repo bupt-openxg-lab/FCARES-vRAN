@@ -44,6 +44,8 @@
 char *parallel_config=NULL;
 char *worker_config=NULL;
 int usrp_tx_thread = 0;
+int oxgrf_tx_thread = 0;
+char *nfapi_str=NULL;
 uint8_t nfapi_mode=0;
 
 static struct timespec start;
