@@ -135,7 +135,7 @@ static inline int cpumeas(int action) {
     default:
       break;
   }
-
+  cpu_meas_enabled = 1;
   return cpu_meas_enabled;
 }
 

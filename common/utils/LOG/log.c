@@ -492,7 +492,9 @@ int logInit (void)
   for (int i=0 ; log_level_names[i].name != NULL ; i++)
     g_log->level2string[i] = toupper(log_level_names[i].name[0]); // uppercased first letter of level name
   
-  g_log->filelog_name = "/tmp/openair.log";
+  // g_log->filelog_name = "/tmp/openair.log";
+  // change to use tmpfs for log files
+  g_log->filelog_name = "/dev/shm/openair.log";
   log_getconfig(g_log);
 
   // set all unused component items to 0, they are for non predefined components

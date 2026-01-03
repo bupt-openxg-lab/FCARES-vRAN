@@ -68,6 +68,8 @@ static int DEFRUTPCORES[] = {-1,-1,-1,-1};
 #include <nfapi/oai_integration/vendor_ext.h>
 #include "executables/nr-softmodem-common.h"
 
+time_stats_t tx_time;
+
 static void NRRCconfig_RU(configmodule_interface_t *cfg);
 
 /*************************************************************/
@@ -1028,6 +1030,7 @@ void *ru_stats_thread(void *param) {
 
 void ru_tx_func(void *param)
 {
+  start_meas(&tx_time);
   processingData_RU_t *info = (processingData_RU_t *) param;
   RU_t *ru = info->ru;
   NR_DL_FRAME_PARMS *fp = ru->nr_frame_parms;
@@ -1043,14 +1046,21 @@ void ru_tx_func(void *param)
   // do OFDM with/without TX front-end processing  if needed
   if ((ru->fh_north_asynch_in == NULL) && (ru->feptx_ofdm))
     ru->feptx_ofdm(ru, frame_tx, slot_tx);
-
+  stop_meas(&tx_time);
+  LOG_W(NR_PHY,"[ru_tx_func] %d.%d: ru->feptx_ofdm AND ru->feptx_prec costs %.2f us\n",frame_tx, slot_tx, get_time_meas_us(&tx_time));
   if(!emulate_rf) {
     // do outgoing fronthaul (south) if needed
     if ((ru->fh_north_asynch_in == NULL) && (ru->fh_south_out))
       ru->fh_south_out(ru, frame_tx, slot_tx, info->timestamp_tx);
+    
+    stop_meas(&tx_time);
+    LOG_W(NR_PHY,"[ru_tx_func] %d.%d: ru->fh_south_out costs %.2f us\n",frame_tx, slot_tx, get_time_meas_us(&tx_time));
 
     if (ru->fh_north_out)
       ru->fh_north_out(ru);
+    
+    stop_meas(&tx_time);
+    LOG_W(NR_PHY,"[ru_tx_func] %d.%d: ru->fh_north_out costs %.2f us\n",frame_tx, slot_tx, get_time_meas_us(&tx_time));
   } else {
     if(frame_tx == print_frame) {
       for (int i=0; i<ru->nb_tx; i++) {

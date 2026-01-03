@@ -2104,10 +2104,14 @@ static void pf_ul(module_id_t module_id,
     const uint32_t bwpStart = current_BWP->BWPStart;
     while (rbStart < bwpSize && (rballoc_mask[rbStart + bwpStart] & slbitmap))
       rbStart++;
+  
     sched_pusch->rbStart = rbStart;
     uint16_t max_rbSize = 1;
-    while (rbStart + max_rbSize < bwpSize && !(rballoc_mask[rbStart + bwpStart + max_rbSize] & slbitmap))
-      max_rbSize++;
+    while (rbStart + max_rbSize < bwpSize && !(rballoc_mask[rbStart + bwpStart + max_rbSize] & slbitmap)){
+            max_rbSize++;
+    }
+      //by Luhan
+    LOG_W(MAC,"---------------by Luhan, max_rbSize is %d, slot is %d, sched_slot is %d \n",max_rbSize, slot,sched_slot);
 
     if (rbStart + min_rb >= bwpSize || max_rbSize < min_rb) {
       reset_beam_status(&nrmac->beam_info, frame, slot, iterator->UE->UE_beam_index, slots_per_frame, dci_beam.new_beam);
@@ -2171,7 +2175,8 @@ static void pf_ul(module_id_t module_id,
     sched_pusch->tb_size = TBS;
     sched_pusch->frame = sched_frame;
     sched_pusch->slot = sched_slot;
-    LOG_D(NR_MAC,
+    //by Luhan
+    LOG_W(NR_MAC,
           "rbSize %d (max_rbSize %d), TBS %d, est buf %d, sched_ul %d, B %d, CCE %d, num_dmrs_symb %d, N_PRB_DMRS %d\n",
           rbSize,
           max_rbSize,
@@ -2215,8 +2220,15 @@ static bool nr_ulsch_preprocessor(module_id_t module_id, frame_t frame, sub_fram
   const int K2 = nr_mac->radio_config.minRXTXTIME + get_NTN_Koffset(scc);
   const int sched_frame = (frame + (slot + K2) / slots_frame) % MAX_FRAME_NUMBER;
   const int sched_slot = (slot + K2) % slots_frame;
+  //by Luhan
+  LOG_W(MAC, "----in nr_ulsch_preprossor, frame is %d, sched_slot is %d , K2 is %d, slot is %d \n", frame, sched_slot, K2,slot);
+
   if (!is_ul_slot(sched_slot, &nr_mac->frame_structure))
+  {
+     LOG_W(MAC, "----in nr_ulsch_preprossor, sched_slot is %d , IS NOT UL \n",sched_slot);
     return false;
+  }
+    
 
   int num_beams = nr_mac->beam_info.beam_allocation ? nr_mac->beam_info.beams_per_period : 1;
   int bw = scc->uplinkConfigCommon->frequencyInfoUL->scs_SpecificCarrierList.list.array[0]->carrierBandwidth;
@@ -2274,13 +2286,19 @@ void nr_schedule_ulsch(module_id_t module_id, frame_t frame, sub_frame_t slot, n
 
   /* Uplink data ONLY can be scheduled when the current slot is downlink slot,
    * because we have to schedule the DCI0 first before schedule uplink data */
+  //by Luhan
+  LOG_W(NR_MAC, "!!!!!!Current slot %d is slot\n",slot);
   if (!is_dl_slot(slot, &nr_mac->frame_structure)) {
-    LOG_D(NR_MAC, "Current slot %d is NOT DL slot, cannot schedule DCI0 for UL data\n", slot);
+    LOG_W(NR_MAC, "!!!!!!Current slot %d is NOT DL slot, cannot schedule DCI0 for UL data\n", slot);
     return;
   }
   bool do_sched = nr_mac->pre_processor_ul(module_id, frame, slot);
   if (!do_sched)
+  {
+    LOG_W(NR_MAC, "!!!!!!Cannot schedule uplink, current dl slot is %d\n",slot);
     return;
+  }
+    
 
   ul_dci_req->SFN = frame;
   ul_dci_req->Slot = slot;
@@ -2498,6 +2516,12 @@ void nr_schedule_ulsch(module_id_t module_id, frame_t frame, sub_frame_t slot, n
     pusch_pdu->resource_alloc = 1; //type 1
     pusch_pdu->rb_start = sched_pusch->rbStart;
     pusch_pdu->rb_size = sched_pusch->rbSize;
+    // by Luhan
+    LOG_W(MAC,
+          "-----------pusch_pdu->rnti is %d, pusch_pdu->bwp_size is %d, pusch_pdu->rb_size is %d \n",
+          pusch_pdu->rnti,
+          pusch_pdu->bwp_size,
+          pusch_pdu->rb_size);
     pusch_pdu->vrb_to_prb_mapping = 0;
     if (current_BWP->pusch_Config==NULL || current_BWP->pusch_Config->frequencyHopping==NULL)
       pusch_pdu->frequency_hopping = 0;

@@ -29,7 +29,7 @@
 #include "common/config/config_userapi.h"
 #include "common/utils/threadPool/notified_fifo.h"
 // global var for openair performance profiler
-int cpu_meas_enabled = 0;
+int cpu_meas_enabled = 1;
 double cpu_freq_GHz  __attribute__ ((aligned(32)));
 
 double cpu_freq_GHz  __attribute__ ((aligned(32)))=0.0;
@@ -176,14 +176,25 @@ size_t print_meas_log(time_stats_t *ts,
 
 double get_time_meas_us(time_stats_t *ts)
 {
+  //-----------------OAI official version---------------
   static double cpu_freq_GHz = 0.0;
 
   if (cpu_freq_GHz == 0.0)
     cpu_freq_GHz = get_cpu_freq_GHz();
 
-  if (ts->trials>0)
-    return  (ts->diff/ts->trials/cpu_freq_GHz/1000.0);
+  // if (ts->trials>0)
+  //   return  (ts->diff/ts->trials/cpu_freq_GHz/1000.0);
 
+  // return 0;
+  // -------------HCS version-----------------------
+  double result = ts->p_time/cpu_freq_GHz/1000.0;
+  // printf("ts->p_time = %lld,result = %.3f us\n", ts->p_time,result);
+  // if(result > 3000)LOG_W(UTIL, "ts->p_time = %lld, ts->in =  %lld, ts->out = %lld,result = %.3f\n", ts->p_time, ts->in, ts->out,result);
+  if(result > 3000){
+      int cpu = sched_getcpu();  // 获取当前 CPU 核心
+      printf("cpu%d: ts->p_time = %lld,result = %.3f us\n", cpu, ts->p_time,result);
+    }
+  return result;
   return 0;
 }
 

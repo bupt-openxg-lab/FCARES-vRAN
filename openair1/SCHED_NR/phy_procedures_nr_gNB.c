@@ -315,12 +315,16 @@ static int nr_ulsch_procedures(PHY_VARS_gNB *gNB, int frame_rx, int slot_rx, boo
 {
   NR_DL_FRAME_PARMS *frame_parms = &gNB->frame_parms;
 
+  
+
   int nb_pusch = 0;
   for (uint8_t ULSCH_id = 0; ULSCH_id < gNB->max_nb_pusch; ULSCH_id++) {
     if (ulsch_to_decode[ULSCH_id]) {
       nb_pusch++;
     }
   }
+
+  LOG_W(PHY,"**********in nr_ulsch_procedures, frame_rx is %d, nb_pusch is %d \n", frame_rx, nb_pusch);
 
   if (nb_pusch == 0) {
     return 0;
@@ -792,6 +796,7 @@ int phy_procedures_gNB_uespec_RX(PHY_VARS_gNB *gNB, int frame_rx, int slot_rx, N
   UL_INFO->rx_ind.pdu_list = UL_INFO->rx_pdu_list;
   bool ulsch_to_decode[gNB->max_nb_pusch];
   bzero((void *)ulsch_to_decode, sizeof(ulsch_to_decode));
+  // LOG_W(NR_PHY,"gNB->max_nb_pusch = %d\n",gNB->max_nb_pusch);
   for (int ULSCH_id = 0; ULSCH_id < gNB->max_nb_pusch; ULSCH_id++) {
     NR_gNB_ULSCH_t *ulsch = &gNB->ulsch[ULSCH_id];
     NR_UL_gNB_HARQ_t *ulsch_harq = ulsch->harq_process;
@@ -898,9 +903,8 @@ int phy_procedures_gNB_uespec_RX(PHY_VARS_gNB *gNB, int frame_rx, int slot_rx, N
    * (valid for unitary physical simulators). ULSCH processing lopp is then executed
    * only once, which ensures exactly one start and stop of the ULSCH decoding time
    * measurement per processed TB.*/
-  if (gNB->max_nb_pusch == 1)
+  // if (gNB->max_nb_pusch == 1)
     start_meas(&gNB->ulsch_decoding_stats);
-
   int const ret_nr_ulsch_procedures = nr_ulsch_procedures(gNB, frame_rx, slot_rx, ulsch_to_decode, UL_INFO);
   if (ret_nr_ulsch_procedures != 0) {
     LOG_E(PHY,"Error in nr_ulsch_procedures, returned %d\n",ret_nr_ulsch_procedures);
@@ -910,8 +914,11 @@ int phy_procedures_gNB_uespec_RX(PHY_VARS_gNB *gNB, int frame_rx, int slot_rx, N
    * (valid for unitary physical simulators). ULSCH processing loop is then executed
    * only once, which ensures exactly one start and stop of the ULSCH decoding time
    * measurement per processed TB.*/
-  if (gNB->max_nb_pusch == 1)
+  // if (gNB->max_nb_pusch == 1){
     stop_meas(&gNB->ulsch_decoding_stats);
+    LOG_W(NR_PHY,"[rx_func] %d.%d:  ulsch_decoding costs %.2f us\n" ,frame_rx, slot_rx, get_time_meas_us(&gNB->ulsch_decoding_stats));
+  // }
+    
   for (int i = 0; i < gNB->max_nb_srs; i++) {
     NR_gNB_SRS_t *srs = &gNB->srs[i];
     if (srs) {

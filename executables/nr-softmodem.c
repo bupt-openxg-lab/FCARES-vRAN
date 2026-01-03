@@ -581,6 +581,7 @@ int main( int argc, char **argv ) {
   mode = normal_txrx;
   memset(tx_max_power,0,sizeof(int)*MAX_NUM_CCs);
   logInit();
+  set_glog_filelog(1);
   lock_memory_to_ram();
   get_options(uniqCfg);
 

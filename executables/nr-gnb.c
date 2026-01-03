@@ -82,10 +82,16 @@
 //#define TICK_TO_US(ts) (ts.diff)
 #define TICK_TO_US(ts) (ts.trials==0?0:ts.diff/ts.trials)
 #define L1STATSSTRLEN 16384
+
+time_stats_t phase_comp_time;
+time_stats_t rxfunc_time;
+time_stats_t txfunc_time;
+
 static void rx_func(processingData_L1_t *param);
 
 static void tx_func(processingData_L1tx_t *info)
 {
+  start_meas(&txfunc_time);
   int frame_tx = info->frame;
   int slot_tx = info->slot;
   int frame_rx = info->frame_rx;
@@ -122,12 +128,13 @@ static void tx_func(processingData_L1tx_t *info)
   syncMsg->timestamp_tx = info->timestamp_tx;
   res->key = slot_rx;
   pushNotifiedFIFO(&gNB->resp_L1, res);
-
+  stop_meas(&txfunc_time);
+  LOG_W(NR_PHY,"[tx_func] %d.%d: txfunc 1 costs %.2f us\n",frame_tx, slot_tx, get_time_meas_us(&txfunc_time));
   int tx_slot_type = nr_slot_select(cfg, frame_tx, slot_tx);
   if (tx_slot_type == NR_DOWNLINK_SLOT || tx_slot_type == NR_MIXED_SLOT || get_softmodem_params()->continuous_tx) {
     start_meas(&info->gNB->phy_proc_tx);
     phy_procedures_gNB_TX(info, frame_tx, slot_tx, 1);
-
+    LOG_W(NR_PHY,"[tx_func] %d.%d: txfunc 2 costs %.2f us\n",frame_tx, slot_tx, get_time_meas_us(&txfunc_time));
     PHY_VARS_gNB *gNB = info->gNB;
     processingData_RU_t syncMsgRU;
     syncMsgRU.frame_tx = frame_tx;
@@ -138,7 +145,8 @@ static void tx_func(processingData_L1tx_t *info)
     ru_tx_func((void *)&syncMsgRU);
     stop_meas(&info->gNB->phy_proc_tx);
   }
-
+  stop_meas(&txfunc_time);
+  LOG_W(NR_PHY,"[tx_func] %d.%d: txfunc 3 costs %.2f us\n",frame_tx, slot_tx, get_time_meas_us(&txfunc_time));
   if (NFAPI_MODE == NFAPI_MONOLITHIC) {
     /* this thread is done with the sched_info, decrease the reference counter.
      * This only applies for monolithic; in the PNF, the memory is allocated in
@@ -146,6 +154,8 @@ static void tx_func(processingData_L1tx_t *info)
     LOG_D(NR_PHY, "Calling deref_sched_response for id %d (tx_func) in %d.%d\n", info->sched_response_id, frame_tx, slot_tx);
     deref_sched_response(info->sched_response_id);
   }
+  stop_meas(&txfunc_time);
+  LOG_W(NR_PHY,"[tx_func] %d.%d: txfunc ALL costs %.2f us\n",frame_tx, slot_tx, get_time_meas_us(&txfunc_time));
 }
 
 void *L1_rx_thread(void *arg) 
@@ -179,6 +189,11 @@ void *L1_tx_thread(void *arg) {
 
 static void rx_func(processingData_L1_t *info)
 {
+  static time_stats_t last_timestamp = {0,};
+  start_meas(&rxfunc_time);
+  stop_meas(&last_timestamp);
+  LOG_W(NR_PHY,"[rx_func] Time since last call: %.2f us\n", get_time_meas_us(&last_timestamp));
+  memcpy(&last_timestamp, &rxfunc_time, sizeof(time_stats_t));
   PHY_VARS_gNB *gNB = info->gNB;
   int frame_rx = info->frame_rx;
   int slot_rx = info->slot_rx;
@@ -187,7 +202,8 @@ static void rx_func(processingData_L1_t *info)
   // RX processing
   int rx_slot_type = nr_slot_select(cfg, frame_rx, slot_rx);
   if (rx_slot_type == NR_UPLINK_SLOT || rx_slot_type == NR_MIXED_SLOT) {
-    LOG_D(NR_PHY, "%d.%d Starting RX processing\n", frame_rx, slot_rx);
+
+    LOG_W(NR_PHY, "%d.%d NR_UPLINK_SLOT or NR_MIXED_SLOT\n", frame_rx, slot_rx);
 
     // UE-specific RX processing for subframe n
     NR_UL_IND_t UL_INFO = {.frame = frame_rx, .slot = slot_rx, .module_id = gNB->Mod_id, .CC_id = gNB->CC_id};
@@ -212,13 +228,14 @@ static void rx_func(processingData_L1_t *info)
         }
       }
     }
+    start_meas(&phase_comp_time);
     phy_procedures_gNB_uespec_RX(gNB, frame_rx, slot_rx, &UL_INFO);
-
+    stop_meas(&phase_comp_time);
     // Call the scheduler
     start_meas(&gNB->ul_indication_stats);
     gNB->if_inst->NR_UL_indication(&UL_INFO);
     stop_meas(&gNB->ul_indication_stats);
-
+    LOG_W(NR_PHY,"[rx_func] %d.%d: phy_procedures_gNB_uespec_RX costs %.2f us\n",frame_rx, slot_rx, get_time_meas_us(&phase_comp_time));
     notifiedFIFO_elt_t *res = newNotifiedFIFO_elt(sizeof(processingData_L1_t), 0, &gNB->L1_rx_out, NULL);
     processingData_L1_t *syncMsg = NotifiedFifoData(res);
     syncMsg->gNB = gNB;
@@ -228,7 +245,8 @@ static void rx_func(processingData_L1_t *info)
     LOG_D(NR_PHY, "Signaling completion for %d.%d (mod_slot %d) on L1_rx_out\n", frame_rx, slot_rx, slot_rx % RU_RX_SLOT_DEPTH);
     pushNotifiedFIFO(&gNB->L1_rx_out, res);
   }
-
+  stop_meas(&rxfunc_time);
+  LOG_W(NR_PHY,"[rx_func] %d.%d: rxfunc costs %.2f us\n",frame_rx, slot_rx, get_time_meas_us(&rxfunc_time));
 }
 
 static size_t dump_L1_meas_stats(PHY_VARS_gNB *gNB, RU_t *ru, char *output, size_t outputlen) {
