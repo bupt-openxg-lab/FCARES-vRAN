@@ -1,0 +1,32 @@
+{
+  "bringup_attempt": 1,
+  "config_path": "/home/bupt/wlh/ran/automation/config.example.json",
+  "finished_at": "2026-04-09T21:03:31.280863",
+  "gnb_attempts_used": 1,
+  "gnb_log": "/home/bupt/wlh/ran/automation/automation/batches/20260409_210157_night_30runs/runs/20260409_210157_cache_super_light_01/gnb_attempt01.log",
+  "gnb_start_log": "/home/bupt/wlh/ran/automation/automation/batches/20260409_210157_night_30runs/runs/20260409_210157_cache_super_light_01/gnb_start_attempt01.log",
+  "iperf": {
+    "bits_per_second": 33832152.85939076,
+    "mbps": 33.83,
+    "parser": "json"
+  },
+  "iperf_client_remote_log": "/tmp/oai-automation/iperf_client.log",
+  "iperf_client_returncode": 0,
+  "metadata": {
+    "batch_index": 1,
+    "batch_name": "night_30runs",
+    "scenario_iteration": 1,
+    "scenario_name": "cache_super_light"
+  },
+  "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260409_210157_night_30runs/runs/20260409_210157_cache_super_light_01",
+  "run_label": "cache_super_light_01",
+  "started_at": "2026-04-09T21:01:57.875879",
+  "status": "ok",
+  "stress_command": "taskset -c 8 stress-ng --cache 8 --cache-level 3 --timeout 6000s --metrics-brief",
+  "stress_log": "/home/bupt/wlh/ran/automation/automation/batches/20260409_210157_night_30runs/runs/20260409_210157_cache_super_light_01/stress.log",
+  "ue_ip": "192.169.0.3",
+  "ue_log": "/home/bupt/wlh/ran/automation/automation/batches/20260409_210157_night_30runs/runs/20260409_210157_cache_super_light_01/ue_attempt01.log",
+  "ue_remote_log": "/tmp/oai-automation/ue_start_attempt01.log",
+  "ue_remote_pid": 4594,
+  "ue_start_log": "/home/bupt/wlh/ran/automation/automation/batches/20260409_210157_night_30runs/runs/20260409_210157_cache_super_light_01/ue_start_attempt01.log"
+}

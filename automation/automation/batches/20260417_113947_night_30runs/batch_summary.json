@@ -1,0 +1,311 @@
+{
+  "base_config": "/home/bupt/wlh/ran/automation/config.example.json",
+  "batch_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs",
+  "batch_name": "night_30runs",
+  "completed_runs": 30,
+  "failed_runs": 4,
+  "ok_runs": 26,
+  "planned_runs": 30,
+  "results": [
+    {
+      "batch_index": 1,
+      "error": "",
+      "iperf_mbps": 100.0,
+      "iteration": 1,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_113947_cache_super_light_01",
+      "scenario_name": "cache_super_light",
+      "status": "ok",
+      "ue_ip": "192.169.1.70"
+    },
+    {
+      "batch_index": 2,
+      "error": "",
+      "iperf_mbps": 100.0,
+      "iteration": 2,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_114414_cache_super_light_02",
+      "scenario_name": "cache_super_light",
+      "status": "ok",
+      "ue_ip": "192.169.1.71"
+    },
+    {
+      "batch_index": 3,
+      "error": "",
+      "iperf_mbps": 100.0,
+      "iteration": 3,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_114839_cache_super_light_03",
+      "scenario_name": "cache_super_light",
+      "status": "ok",
+      "ue_ip": "192.169.1.72"
+    },
+    {
+      "batch_index": 4,
+      "error": "",
+      "iperf_mbps": 100.0,
+      "iteration": 4,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_115317_cache_super_light_04",
+      "scenario_name": "cache_super_light",
+      "status": "ok",
+      "ue_ip": "192.169.1.73"
+    },
+    {
+      "batch_index": 5,
+      "error": "",
+      "iperf_mbps": 100.0,
+      "iteration": 5,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_115745_cache_super_light_05",
+      "scenario_name": "cache_super_light",
+      "status": "ok",
+      "ue_ip": "192.169.1.74"
+    },
+    {
+      "batch_index": 6,
+      "error": "",
+      "iperf_mbps": 100.0,
+      "iteration": 6,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_120331_cache_super_light_06",
+      "scenario_name": "cache_super_light",
+      "status": "ok",
+      "ue_ip": "192.169.1.75"
+    },
+    {
+      "batch_index": 7,
+      "error": "",
+      "iperf_mbps": 100.0,
+      "iteration": 7,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_120757_cache_super_light_07",
+      "scenario_name": "cache_super_light",
+      "status": "ok",
+      "ue_ip": "192.169.1.76"
+    },
+    {
+      "batch_index": 8,
+      "error": "",
+      "iperf_mbps": 100.0,
+      "iteration": 8,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_121224_cache_super_light_08",
+      "scenario_name": "cache_super_light",
+      "status": "ok",
+      "ue_ip": "192.169.1.77"
+    },
+    {
+      "batch_index": 9,
+      "error": "",
+      "iperf_mbps": 100.0,
+      "iteration": 9,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_121649_cache_super_light_09",
+      "scenario_name": "cache_super_light",
+      "status": "ok",
+      "ue_ip": "192.169.1.78"
+    },
+    {
+      "batch_index": 10,
+      "error": "",
+      "iperf_mbps": 100.0,
+      "iteration": 10,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_122114_cache_super_light_10",
+      "scenario_name": "cache_super_light",
+      "status": "ok",
+      "ue_ip": "192.169.1.79"
+    },
+    {
+      "batch_index": 11,
+      "error": "",
+      "iperf_mbps": 100.0,
+      "iteration": 1,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_122539_cache_medium_01",
+      "scenario_name": "cache_medium",
+      "status": "ok",
+      "ue_ip": "192.169.1.80"
+    },
+    {
+      "batch_index": 12,
+      "error": "",
+      "iperf_mbps": 100.0,
+      "iteration": 2,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_123011_cache_medium_02",
+      "scenario_name": "cache_medium",
+      "status": "ok",
+      "ue_ip": "192.169.1.81"
+    },
+    {
+      "batch_index": 13,
+      "error": "",
+      "iperf_mbps": 100.0,
+      "iteration": 3,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_123444_cache_medium_03",
+      "scenario_name": "cache_medium",
+      "status": "ok",
+      "ue_ip": "192.169.1.82"
+    },
+    {
+      "batch_index": 14,
+      "error": "",
+      "iperf_mbps": 100.0,
+      "iteration": 4,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_123914_cache_medium_04",
+      "scenario_name": "cache_medium",
+      "status": "ok",
+      "ue_ip": "192.169.1.83"
+    },
+    {
+      "batch_index": 15,
+      "error": "iperf3 client failed with exit code 124",
+      "iperf_mbps": "",
+      "iteration": 5,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_124341_cache_medium_05",
+      "scenario_name": "cache_medium",
+      "status": "failed",
+      "ue_ip": "192.169.1.84"
+    },
+    {
+      "batch_index": 16,
+      "error": "",
+      "iperf_mbps": 100.0,
+      "iteration": 6,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_124824_cache_medium_06",
+      "scenario_name": "cache_medium",
+      "status": "ok",
+      "ue_ip": "192.169.1.86"
+    },
+    {
+      "batch_index": 17,
+      "error": "",
+      "iperf_mbps": 100.0,
+      "iteration": 7,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_125353_cache_medium_07",
+      "scenario_name": "cache_medium",
+      "status": "ok",
+      "ue_ip": "192.169.1.87"
+    },
+    {
+      "batch_index": 18,
+      "error": "",
+      "iperf_mbps": 100.0,
+      "iteration": 8,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_125820_cache_medium_08",
+      "scenario_name": "cache_medium",
+      "status": "ok",
+      "ue_ip": "192.169.1.88"
+    },
+    {
+      "batch_index": 19,
+      "error": "iperf3 client failed with exit code 124",
+      "iperf_mbps": "",
+      "iteration": 9,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_130247_cache_medium_09",
+      "scenario_name": "cache_medium",
+      "status": "failed",
+      "ue_ip": "192.169.1.88"
+    },
+    {
+      "batch_index": 20,
+      "error": "iperf3 client failed with exit code 124",
+      "iperf_mbps": "",
+      "iteration": 10,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_130730_cache_medium_10",
+      "scenario_name": "cache_medium",
+      "status": "failed",
+      "ue_ip": "192.169.1.89"
+    },
+    {
+      "batch_index": 21,
+      "error": "",
+      "iperf_mbps": 100.0,
+      "iteration": 1,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_131212_no_cache_01",
+      "scenario_name": "no_cache",
+      "status": "ok",
+      "ue_ip": "192.169.1.90"
+    },
+    {
+      "batch_index": 22,
+      "error": "",
+      "iperf_mbps": 100.0,
+      "iteration": 2,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_131640_no_cache_02",
+      "scenario_name": "no_cache",
+      "status": "ok",
+      "ue_ip": "192.169.1.91"
+    },
+    {
+      "batch_index": 23,
+      "error": "",
+      "iperf_mbps": 100.0,
+      "iteration": 3,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_132108_no_cache_03",
+      "scenario_name": "no_cache",
+      "status": "ok",
+      "ue_ip": "192.169.1.92"
+    },
+    {
+      "batch_index": 24,
+      "error": "",
+      "iperf_mbps": 100.0,
+      "iteration": 4,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_132536_no_cache_04",
+      "scenario_name": "no_cache",
+      "status": "ok",
+      "ue_ip": "192.169.1.93"
+    },
+    {
+      "batch_index": 25,
+      "error": "iperf3 client failed with exit code 124",
+      "iperf_mbps": "",
+      "iteration": 5,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_133004_no_cache_05",
+      "scenario_name": "no_cache",
+      "status": "failed",
+      "ue_ip": "192.169.1.94"
+    },
+    {
+      "batch_index": 26,
+      "error": "",
+      "iperf_mbps": 100.0,
+      "iteration": 6,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_133447_no_cache_06",
+      "scenario_name": "no_cache",
+      "status": "ok",
+      "ue_ip": "192.169.1.95"
+    },
+    {
+      "batch_index": 27,
+      "error": "",
+      "iperf_mbps": 100.0,
+      "iteration": 7,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_133916_no_cache_07",
+      "scenario_name": "no_cache",
+      "status": "ok",
+      "ue_ip": "192.169.1.96"
+    },
+    {
+      "batch_index": 28,
+      "error": "",
+      "iperf_mbps": 100.0,
+      "iteration": 8,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_134343_no_cache_08",
+      "scenario_name": "no_cache",
+      "status": "ok",
+      "ue_ip": "192.169.1.97"
+    },
+    {
+      "batch_index": 29,
+      "error": "",
+      "iperf_mbps": 100.0,
+      "iteration": 9,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_134811_no_cache_09",
+      "scenario_name": "no_cache",
+      "status": "ok",
+      "ue_ip": "192.169.1.98"
+    },
+    {
+      "batch_index": 30,
+      "error": "",
+      "iperf_mbps": 100.0,
+      "iteration": 10,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_135239_no_cache_10",
+      "scenario_name": "no_cache",
+      "status": "ok",
+      "ue_ip": "192.169.1.99"
+    }
+  ]
+}

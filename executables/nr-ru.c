@@ -69,6 +69,7 @@ static int DEFRUTPCORES[] = {-1,-1,-1,-1};
 #include "executables/nr-softmodem-common.h"
 
 time_stats_t tx_time;
+time_stats_t tx_ts, last_tx_ts;
 
 static void NRRCconfig_RU(configmodule_interface_t *cfg);
 
@@ -1028,9 +1029,11 @@ void *ru_stats_thread(void *param) {
   return(NULL);
 }
 
+
+
+
 void ru_tx_func(void *param)
 {
-  start_meas(&tx_time);
   processingData_RU_t *info = (processingData_RU_t *) param;
   RU_t *ru = info->ru;
   NR_DL_FRAME_PARMS *fp = ru->nr_frame_parms;
@@ -1038,7 +1041,8 @@ void ru_tx_func(void *param)
   int slot_tx = info->slot_tx;
   int print_frame = 8;
   char filename[40];
-
+  start_meas(&tx_time);
+  LOG_W(NR_PHY,"[ru_tx_func] %d.%d: ru->feptx_ofdm AND ru->feptx_prec start\n",frame_tx, slot_tx);
   // do TX front-end processing if needed (precoding and/or IDFTs)
   if (ru->feptx_prec)
     ru->feptx_prec(ru,frame_tx,slot_tx);
@@ -1047,13 +1051,16 @@ void ru_tx_func(void *param)
   if ((ru->fh_north_asynch_in == NULL) && (ru->feptx_ofdm))
     ru->feptx_ofdm(ru, frame_tx, slot_tx);
   stop_meas(&tx_time);
+  
   LOG_W(NR_PHY,"[ru_tx_func] %d.%d: ru->feptx_ofdm AND ru->feptx_prec costs %.2f us\n",frame_tx, slot_tx, get_time_meas_us(&tx_time));
   if(!emulate_rf) {
     // do outgoing fronthaul (south) if needed
     if ((ru->fh_north_asynch_in == NULL) && (ru->fh_south_out))
       ru->fh_south_out(ru, frame_tx, slot_tx, info->timestamp_tx);
-    
-    stop_meas(&tx_time);
+  // stop_meas(&last_tx_ts);
+  // LOG_W(NR_PHY,"[ru_tx_func] %d.%d: tx interval = %.2f us\n",frame_tx, slot_tx, get_time_meas_us(&last_tx_ts));
+  // start_meas(&last_tx_ts);
+  stop_meas(&tx_time);
     LOG_W(NR_PHY,"[ru_tx_func] %d.%d: ru->fh_south_out costs %.2f us\n",frame_tx, slot_tx, get_time_meas_us(&tx_time));
 
     if (ru->fh_north_out)

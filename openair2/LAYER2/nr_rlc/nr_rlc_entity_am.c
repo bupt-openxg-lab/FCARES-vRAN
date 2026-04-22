@@ -970,7 +970,7 @@ static int serialize_sdu(nr_rlc_entity_am_t *entity,
 
   nr_rlc_pdu_encoder_put_bits(&encoder, 1-sdu->is_first,1);/* 1st bit of SI */
   nr_rlc_pdu_encoder_put_bits(&encoder, 1-sdu->is_last,1); /* 2nd bit of SI */
-
+  // printf("rlc SN_field length = %d\n",entity->sn_field_length);
   if (entity->sn_field_length == 18)
     nr_rlc_pdu_encoder_put_bits(&encoder, 0, 2);                       /* R */
 
@@ -1670,6 +1670,9 @@ static int generate_tx_pdu(nr_rlc_entity_am_t *entity, char *buffer, int size)
   /* assign SN to SDU */
   if (sdu->sdu->sn == -1) {
     sdu->sdu->sn = entity->tx_next;
+    char *buffer = sdu->sdu->data;
+    unsigned int rcvd_sn = ((buffer[0] & 0x3) << 16) | (buffer[1] << 8) | buffer[2];
+    LOG_W(RLC, "[Uplink-ue] rlc.am generate SN %d from PDCP SN %u\n",sdu->sdu->sn, rcvd_sn);
     entity->tx_next = (entity->tx_next + 1) % entity->sn_modulus;
   }
 
@@ -1811,6 +1814,8 @@ void nr_rlc_entity_am_recv_sdu(nr_rlc_entity_t *_entity,
 
   if (entity->tx_size + size > entity->tx_maxsize) {
     entity->sdu_rejected++;
+    unsigned int rcvd_sn = ((buffer[0] & 0x3) << 16) | (buffer[1] << 8) | buffer[2];
+    LOG_W(RLC, "[Uplink-ue] rlc.am reject PDU from PDCP! rcvd_sn = %u, size = %u, entity->tx_size = %u, hex:%02x%02x%02x\n",rcvd_sn, size,entity->tx_size, buffer[0],buffer[1],buffer[2]);
     return;
   }
 

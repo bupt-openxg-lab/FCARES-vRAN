@@ -1,0 +1,16 @@
+{
+  "bringup_attempt": 1,
+  "bringup_failures": [
+    {
+      "attempt": 1,
+      "error": "gNB exited early, see /home/bupt/wlh/ran/automation/runs/20260408_234248/gnb_start_attempt01.log"
+    }
+  ],
+  "config_path": "/home/bupt/wlh/ran/automation/config.example.json",
+  "finished_at": "2026-04-08T23:43:02.681023",
+  "gnb_log": "/home/bupt/wlh/ran/automation/runs/20260408_234248/gnb_attempt01.log",
+  "gnb_start_log": "/home/bupt/wlh/ran/automation/runs/20260408_234248/gnb_start_attempt01.log",
+  "run_dir": "/home/bupt/wlh/ran/automation/runs/20260408_234248",
+  "started_at": "2026-04-08T23:42:48.862727",
+  "status": "running"
+}

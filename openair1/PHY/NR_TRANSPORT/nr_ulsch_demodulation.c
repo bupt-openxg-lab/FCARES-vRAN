@@ -1294,6 +1294,7 @@ int nr_rx_pusch_tp(PHY_VARS_gNB *gNB,
         if (symbol == rel15_ul->start_symbol_index) {
           pusch_vars->ulsch_power[aarx] = 0;
           pusch_vars->ulsch_noise_power[aarx] = 0;
+          // pusch_vars->ulsch_min_snr[aarx] = 0xFFFFFFFF; 
         }
 
         int64_t symb_energy = 0;

@@ -1,0 +1,28 @@
+{
+  "bringup_attempt": 1,
+  "config_path": "/home/bupt/wlh/ran/automation/config.example.json",
+  "error": "iperf3 client failed with exit code 124",
+  "finished_at": "2026-04-17T13:34:47.494430",
+  "gnb_attempts_used": 1,
+  "gnb_log": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_133004_no_cache_05/gnb_attempt01.log",
+  "gnb_start_log": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_133004_no_cache_05/gnb_start_attempt01.log",
+  "iperf_client_remote_log": "/tmp/oai-automation/iperf_client.log",
+  "iperf_client_returncode": 124,
+  "metadata": {
+    "batch_index": 25,
+    "batch_name": "night_30runs",
+    "persistent_stress": true,
+    "scenario_iteration": 5,
+    "scenario_name": "no_cache"
+  },
+  "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_133004_no_cache_05",
+  "run_label": "no_cache_05",
+  "started_at": "2026-04-17T13:30:04.748440",
+  "status": "failed",
+  "ue_ip": "192.169.1.94",
+  "ue_log": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_133004_no_cache_05/ue_attempt01.log",
+  "ue_remote_log": "/tmp/oai-automation/ue_start_attempt01.log",
+  "ue_remote_pid": null,
+  "ue_start_log": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_133004_no_cache_05/ue_start_attempt01.log",
+  "ue_start_warning": "Timed out while starting remote background process on ubuntu@10.156.64.39 after 20s, and could not recover pid from /tmp/oai-automation/ue_start_attempt01.log.pid. The remote process may have started but the launcher did not detach cleanly."
+}

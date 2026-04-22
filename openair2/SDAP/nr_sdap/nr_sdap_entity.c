@@ -124,6 +124,7 @@ static bool nr_sdap_tx_entity(nr_sdap_entity_t *entity,
 
   if(!pdcp_ent_has_sdap){
     LOG_D(SDAP, "TX - DRB ID: %ld does not have SDAP\n", entity->qfi2drb_table[qfi].drb_id);
+    LOG_W(PDCP," [Uplink-ue] SDAP.tx->PDCP  without qfi \n");
     ret = nr_pdcp_data_req_drb(ctxt_p,
                                srb_flag,
                                sdap_drb_id,
@@ -177,6 +178,7 @@ static bool nr_sdap_tx_entity(nr_sdap_entity_t *entity,
     sdap_hdr.QFI = qfi;
     sdap_hdr.R = 0;
     sdap_hdr.DC = rqi;
+    LOG_W(PDCP," [Uplink-ue] SDAP.tx->PDCP  qfi:%d, DC:%d SDAP size:%d\n",qfi, rqi, sdu_buffer_size+SDAP_HDR_LENGTH);
     /* Add the SDAP UL Header to the buffer */
     memcpy(&sdap_buf[0], &sdap_hdr, SDAP_HDR_LENGTH);
     memcpy(&sdap_buf[SDAP_HDR_LENGTH], sdu_buffer, sdu_buffer_size);

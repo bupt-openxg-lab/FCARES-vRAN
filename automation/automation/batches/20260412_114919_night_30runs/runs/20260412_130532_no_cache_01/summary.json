@@ -1,0 +1,27 @@
+{
+  "bringup_attempt": 1,
+  "config_path": "/home/bupt/wlh/ran/automation/config.example.json",
+  "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_130532_no_cache_01/iperf_server.log",
+  "finished_at": "2026-04-12T13:06:22.623814",
+  "gnb_attempts_used": 1,
+  "gnb_log": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_130532_no_cache_01/gnb_attempt01.log",
+  "gnb_start_log": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_130532_no_cache_01/gnb_start_attempt01.log",
+  "iperf_server_log": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_130532_no_cache_01/iperf_server.log",
+  "metadata": {
+    "batch_index": 51,
+    "batch_name": "night_30runs",
+    "persistent_stress": true,
+    "scenario_iteration": 1,
+    "scenario_name": "no_cache"
+  },
+  "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_130532_no_cache_01",
+  "run_label": "no_cache_01",
+  "started_at": "2026-04-12T13:05:32.366478",
+  "status": "failed",
+  "ue_ip": "192.169.0.142",
+  "ue_log": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_130532_no_cache_01/ue_attempt01.log",
+  "ue_remote_log": "/tmp/oai-automation/ue_start_attempt01.log",
+  "ue_remote_pid": null,
+  "ue_start_log": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_130532_no_cache_01/ue_start_attempt01.log",
+  "ue_start_warning": "Timed out while starting remote background process on ubuntu@10.156.64.39 after 20s, and could not recover pid from /tmp/oai-automation/ue_start_attempt01.log.pid. The remote process may have started but the launcher did not detach cleanly."
+}

@@ -1,0 +1,17 @@
+{
+  "bringup_attempt": 1,
+  "config_path": "/home/bupt/wlh/ran/automation/config.example.json",
+  "finished_at": "2026-04-09T12:16:04.920666",
+  "gnb_log": "/home/bupt/wlh/ran/automation/automation/batches/20260409_114655_night_30runs/runs/20260409_121600_cache_heavy_05/gnb_attempt01.log",
+  "gnb_start_log": "/home/bupt/wlh/ran/automation/automation/batches/20260409_114655_night_30runs/runs/20260409_121600_cache_heavy_05/gnb_start_attempt01.log",
+  "metadata": {
+    "batch_index": 15,
+    "batch_name": "night_30runs",
+    "scenario_iteration": 5,
+    "scenario_name": "cache_heavy"
+  },
+  "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260409_114655_night_30runs/runs/20260409_121600_cache_heavy_05",
+  "run_label": "cache_heavy_05",
+  "started_at": "2026-04-09T12:16:00.738056",
+  "status": "running"
+}

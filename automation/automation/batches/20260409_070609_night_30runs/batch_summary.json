@@ -1,0 +1,21 @@
+{
+  "base_config": "/home/bupt/wlh/ran/automation/config.example.json",
+  "batch_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260409_070609_night_30runs",
+  "batch_name": "night_30runs",
+  "completed_runs": 1,
+  "failed_runs": 0,
+  "ok_runs": 1,
+  "planned_runs": 1,
+  "results": [
+    {
+      "batch_index": 1,
+      "error": "",
+      "iperf_mbps": 99.99,
+      "iteration": 1,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260409_070609_night_30runs/runs/20260409_070609_cache_light_01",
+      "scenario_name": "cache_light",
+      "status": "ok",
+      "ue_ip": "192.169.0.7"
+    }
+  ]
+}

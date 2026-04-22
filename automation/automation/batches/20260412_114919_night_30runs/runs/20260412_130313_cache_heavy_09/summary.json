@@ -1,0 +1,26 @@
+{
+  "bringup_attempt": 1,
+  "config_path": "/home/bupt/wlh/ran/automation/config.example.json",
+  "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_130313_cache_heavy_09/iperf_server.log",
+  "finished_at": "2026-04-12T13:03:42.970588",
+  "gnb_attempts_used": 1,
+  "gnb_log": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_130313_cache_heavy_09/gnb_attempt01.log",
+  "gnb_start_log": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_130313_cache_heavy_09/gnb_start_attempt01.log",
+  "iperf_server_log": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_130313_cache_heavy_09/iperf_server.log",
+  "metadata": {
+    "batch_index": 49,
+    "batch_name": "night_30runs",
+    "persistent_stress": true,
+    "scenario_iteration": 9,
+    "scenario_name": "cache_heavy"
+  },
+  "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_130313_cache_heavy_09",
+  "run_label": "cache_heavy_09",
+  "started_at": "2026-04-12T13:03:13.168592",
+  "status": "failed",
+  "ue_ip": "192.169.0.139",
+  "ue_log": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_130313_cache_heavy_09/ue_attempt01.log",
+  "ue_remote_log": "/tmp/oai-automation/ue_start_attempt01.log",
+  "ue_remote_pid": 238505,
+  "ue_start_log": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_130313_cache_heavy_09/ue_start_attempt01.log"
+}

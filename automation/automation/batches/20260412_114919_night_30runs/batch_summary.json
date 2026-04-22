@@ -1,0 +1,611 @@
+{
+  "base_config": "/home/bupt/wlh/ran/automation/config.example.json",
+  "batch_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs",
+  "batch_name": "night_30runs",
+  "completed_runs": 60,
+  "failed_runs": 60,
+  "ok_runs": 0,
+  "planned_runs": 60,
+  "results": [
+    {
+      "batch_index": 1,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_114919_cache_super_light_01/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 1,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_114919_cache_super_light_01",
+      "scenario_name": "cache_super_light",
+      "status": "failed",
+      "ue_ip": "192.169.0.73"
+    },
+    {
+      "batch_index": 2,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_115201_cache_super_light_02/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 2,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_115201_cache_super_light_02",
+      "scenario_name": "cache_super_light",
+      "status": "failed",
+      "ue_ip": "192.169.0.74"
+    },
+    {
+      "batch_index": 3,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_115251_cache_super_light_03/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 3,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_115251_cache_super_light_03",
+      "scenario_name": "cache_super_light",
+      "status": "failed",
+      "ue_ip": "192.169.0.75"
+    },
+    {
+      "batch_index": 4,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_115341_cache_super_light_04/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 4,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_115341_cache_super_light_04",
+      "scenario_name": "cache_super_light",
+      "status": "failed",
+      "ue_ip": "192.169.0.76"
+    },
+    {
+      "batch_index": 5,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_115431_cache_super_light_05/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 5,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_115431_cache_super_light_05",
+      "scenario_name": "cache_super_light",
+      "status": "failed",
+      "ue_ip": "192.169.0.77"
+    },
+    {
+      "batch_index": 6,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_115522_cache_super_light_06/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 6,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_115522_cache_super_light_06",
+      "scenario_name": "cache_super_light",
+      "status": "failed",
+      "ue_ip": "192.169.0.78"
+    },
+    {
+      "batch_index": 7,
+      "error": "Timed out waiting for oaitun_ue1 on ubuntu@10.156.64.39",
+      "iperf_mbps": "",
+      "iteration": 7,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_115646_cache_super_light_07",
+      "scenario_name": "cache_super_light",
+      "status": "failed",
+      "ue_ip": ""
+    },
+    {
+      "batch_index": 8,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_120008_cache_super_light_08/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 8,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_120008_cache_super_light_08",
+      "scenario_name": "cache_super_light",
+      "status": "failed",
+      "ue_ip": "192.169.0.79"
+    },
+    {
+      "batch_index": 9,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_120150_cache_super_light_09/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 9,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_120150_cache_super_light_09",
+      "scenario_name": "cache_super_light",
+      "status": "failed",
+      "ue_ip": "192.169.0.80"
+    },
+    {
+      "batch_index": 10,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_120240_cache_super_light_10/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 10,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_120240_cache_super_light_10",
+      "scenario_name": "cache_super_light",
+      "status": "failed",
+      "ue_ip": "192.169.0.81"
+    },
+    {
+      "batch_index": 11,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_120330_cache_core_9_light_01/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 1,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_120330_cache_core_9_light_01",
+      "scenario_name": "cache_core_9_light",
+      "status": "failed",
+      "ue_ip": "192.169.0.83"
+    },
+    {
+      "batch_index": 12,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_120520_cache_core_9_light_02/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 2,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_120520_cache_core_9_light_02",
+      "scenario_name": "cache_core_9_light",
+      "status": "failed",
+      "ue_ip": "192.169.0.85"
+    },
+    {
+      "batch_index": 13,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_120709_cache_core_9_light_03/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 3,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_120709_cache_core_9_light_03",
+      "scenario_name": "cache_core_9_light",
+      "status": "failed",
+      "ue_ip": "192.169.0.87"
+    },
+    {
+      "batch_index": 14,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_120859_cache_core_9_light_04/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 4,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_120859_cache_core_9_light_04",
+      "scenario_name": "cache_core_9_light",
+      "status": "failed",
+      "ue_ip": "192.169.0.89"
+    },
+    {
+      "batch_index": 15,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_121048_cache_core_9_light_05/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 5,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_121048_cache_core_9_light_05",
+      "scenario_name": "cache_core_9_light",
+      "status": "failed",
+      "ue_ip": "192.169.0.91"
+    },
+    {
+      "batch_index": 16,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_121237_cache_core_9_light_06/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 6,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_121237_cache_core_9_light_06",
+      "scenario_name": "cache_core_9_light",
+      "status": "failed",
+      "ue_ip": "192.169.0.93"
+    },
+    {
+      "batch_index": 17,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_121427_cache_core_9_light_07/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 7,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_121427_cache_core_9_light_07",
+      "scenario_name": "cache_core_9_light",
+      "status": "failed",
+      "ue_ip": "192.169.0.95"
+    },
+    {
+      "batch_index": 18,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_121616_cache_core_9_light_08/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 8,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_121616_cache_core_9_light_08",
+      "scenario_name": "cache_core_9_light",
+      "status": "failed",
+      "ue_ip": "192.169.0.97"
+    },
+    {
+      "batch_index": 19,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_121806_cache_core_9_light_09/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 9,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_121806_cache_core_9_light_09",
+      "scenario_name": "cache_core_9_light",
+      "status": "failed",
+      "ue_ip": "192.169.0.99"
+    },
+    {
+      "batch_index": 20,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_121955_cache_core_9_light_10/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 10,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_121955_cache_core_9_light_10",
+      "scenario_name": "cache_core_9_light",
+      "status": "failed",
+      "ue_ip": "192.169.0.101"
+    },
+    {
+      "batch_index": 21,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_122145_cache_light_01/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 1,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_122145_cache_light_01",
+      "scenario_name": "cache_light",
+      "status": "failed",
+      "ue_ip": "192.169.0.102"
+    },
+    {
+      "batch_index": 22,
+      "error": "Timed out waiting for oaitun_ue1 on ubuntu@10.156.64.39",
+      "iperf_mbps": "",
+      "iteration": 2,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_122235_cache_light_02",
+      "scenario_name": "cache_light",
+      "status": "failed",
+      "ue_ip": ""
+    },
+    {
+      "batch_index": 23,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_122536_cache_light_03/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 3,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_122536_cache_light_03",
+      "scenario_name": "cache_light",
+      "status": "failed",
+      "ue_ip": "192.169.0.104"
+    },
+    {
+      "batch_index": 24,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_122626_cache_light_04/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 4,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_122626_cache_light_04",
+      "scenario_name": "cache_light",
+      "status": "failed",
+      "ue_ip": "192.169.0.105"
+    },
+    {
+      "batch_index": 25,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_122716_cache_light_05/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 5,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_122716_cache_light_05",
+      "scenario_name": "cache_light",
+      "status": "failed",
+      "ue_ip": "192.169.0.107"
+    },
+    {
+      "batch_index": 26,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_122906_cache_light_06/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 6,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_122906_cache_light_06",
+      "scenario_name": "cache_light",
+      "status": "failed",
+      "ue_ip": "192.169.0.108"
+    },
+    {
+      "batch_index": 27,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_122956_cache_light_07/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 7,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_122956_cache_light_07",
+      "scenario_name": "cache_light",
+      "status": "failed",
+      "ue_ip": "192.169.0.110"
+    },
+    {
+      "batch_index": 28,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_123146_cache_light_08/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 8,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_123146_cache_light_08",
+      "scenario_name": "cache_light",
+      "status": "failed",
+      "ue_ip": "192.169.0.110"
+    },
+    {
+      "batch_index": 29,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_123236_cache_light_09/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 9,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_123236_cache_light_09",
+      "scenario_name": "cache_light",
+      "status": "failed",
+      "ue_ip": "192.169.0.112"
+    },
+    {
+      "batch_index": 30,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_123425_cache_light_10/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 10,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_123425_cache_light_10",
+      "scenario_name": "cache_light",
+      "status": "failed",
+      "ue_ip": "192.169.0.113"
+    },
+    {
+      "batch_index": 31,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_123615_cache_medium_01/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 1,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_123615_cache_medium_01",
+      "scenario_name": "cache_medium",
+      "status": "failed",
+      "ue_ip": "192.169.0.113"
+    },
+    {
+      "batch_index": 32,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_123705_cache_medium_02/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 2,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_123705_cache_medium_02",
+      "scenario_name": "cache_medium",
+      "status": "failed",
+      "ue_ip": "192.169.0.114"
+    },
+    {
+      "batch_index": 33,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_123755_cache_medium_03/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 3,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_123755_cache_medium_03",
+      "scenario_name": "cache_medium",
+      "status": "failed",
+      "ue_ip": "192.169.0.115"
+    },
+    {
+      "batch_index": 34,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_123846_cache_medium_04/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 4,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_123846_cache_medium_04",
+      "scenario_name": "cache_medium",
+      "status": "failed",
+      "ue_ip": "192.169.0.117"
+    },
+    {
+      "batch_index": 35,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_124035_cache_medium_05/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 5,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_124035_cache_medium_05",
+      "scenario_name": "cache_medium",
+      "status": "failed",
+      "ue_ip": "192.169.0.119"
+    },
+    {
+      "batch_index": 36,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_124225_cache_medium_06/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 6,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_124225_cache_medium_06",
+      "scenario_name": "cache_medium",
+      "status": "failed",
+      "ue_ip": "192.169.0.121"
+    },
+    {
+      "batch_index": 37,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_124414_cache_medium_07/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 7,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_124414_cache_medium_07",
+      "scenario_name": "cache_medium",
+      "status": "failed",
+      "ue_ip": "192.169.0.123"
+    },
+    {
+      "batch_index": 38,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_124603_cache_medium_08/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 8,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_124603_cache_medium_08",
+      "scenario_name": "cache_medium",
+      "status": "failed",
+      "ue_ip": "192.169.0.124"
+    },
+    {
+      "batch_index": 39,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_124654_cache_medium_09/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 9,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_124654_cache_medium_09",
+      "scenario_name": "cache_medium",
+      "status": "failed",
+      "ue_ip": "192.169.0.127"
+    },
+    {
+      "batch_index": 40,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_124920_cache_medium_10/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 10,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_124920_cache_medium_10",
+      "scenario_name": "cache_medium",
+      "status": "failed",
+      "ue_ip": "192.169.0.129"
+    },
+    {
+      "batch_index": 41,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_125110_cache_heavy_01/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 1,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_125110_cache_heavy_01",
+      "scenario_name": "cache_heavy",
+      "status": "failed",
+      "ue_ip": "192.169.0.130"
+    },
+    {
+      "batch_index": 42,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_125200_cache_heavy_02/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 2,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_125200_cache_heavy_02",
+      "scenario_name": "cache_heavy",
+      "status": "failed",
+      "ue_ip": "192.169.0.132"
+    },
+    {
+      "batch_index": 43,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_125350_cache_heavy_03/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 3,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_125350_cache_heavy_03",
+      "scenario_name": "cache_heavy",
+      "status": "failed",
+      "ue_ip": "192.169.0.133"
+    },
+    {
+      "batch_index": 44,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_125440_cache_heavy_04/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 4,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_125440_cache_heavy_04",
+      "scenario_name": "cache_heavy",
+      "status": "failed",
+      "ue_ip": "192.169.0.134"
+    },
+    {
+      "batch_index": 45,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_125530_cache_heavy_05/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 5,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_125530_cache_heavy_05",
+      "scenario_name": "cache_heavy",
+      "status": "failed",
+      "ue_ip": "192.169.0.135"
+    },
+    {
+      "batch_index": 46,
+      "error": "Timed out waiting for oaitun_ue1 on ubuntu@10.156.64.39",
+      "iperf_mbps": "",
+      "iteration": 6,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_125621_cache_heavy_06",
+      "scenario_name": "cache_heavy",
+      "status": "failed",
+      "ue_ip": ""
+    },
+    {
+      "batch_index": 47,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_125921_cache_heavy_07/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 7,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_125921_cache_heavy_07",
+      "scenario_name": "cache_heavy",
+      "status": "failed",
+      "ue_ip": "192.169.0.137"
+    },
+    {
+      "batch_index": 48,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_130011_cache_heavy_08/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 8,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_130011_cache_heavy_08",
+      "scenario_name": "cache_heavy",
+      "status": "failed",
+      "ue_ip": "192.169.0.138"
+    },
+    {
+      "batch_index": 49,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_130313_cache_heavy_09/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 9,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_130313_cache_heavy_09",
+      "scenario_name": "cache_heavy",
+      "status": "failed",
+      "ue_ip": "192.169.0.139"
+    },
+    {
+      "batch_index": 50,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_130342_cache_heavy_10/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 10,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_130342_cache_heavy_10",
+      "scenario_name": "cache_heavy",
+      "status": "failed",
+      "ue_ip": "192.169.0.141"
+    },
+    {
+      "batch_index": 51,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_130532_no_cache_01/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 1,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_130532_no_cache_01",
+      "scenario_name": "no_cache",
+      "status": "failed",
+      "ue_ip": "192.169.0.142"
+    },
+    {
+      "batch_index": 52,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_130622_no_cache_02/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 2,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_130622_no_cache_02",
+      "scenario_name": "no_cache",
+      "status": "failed",
+      "ue_ip": "192.169.0.143"
+    },
+    {
+      "batch_index": 53,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_130832_no_cache_03/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 3,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_130832_no_cache_03",
+      "scenario_name": "no_cache",
+      "status": "failed",
+      "ue_ip": "192.169.0.144"
+    },
+    {
+      "batch_index": 54,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_130922_no_cache_04/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 4,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_130922_no_cache_04",
+      "scenario_name": "no_cache",
+      "status": "failed",
+      "ue_ip": "192.169.0.145"
+    },
+    {
+      "batch_index": 55,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_131013_no_cache_05/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 5,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_131013_no_cache_05",
+      "scenario_name": "no_cache",
+      "status": "failed",
+      "ue_ip": "192.169.0.146"
+    },
+    {
+      "batch_index": 56,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_131103_no_cache_06/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 6,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_131103_no_cache_06",
+      "scenario_name": "no_cache",
+      "status": "failed",
+      "ue_ip": "192.169.0.147"
+    },
+    {
+      "batch_index": 57,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_131153_no_cache_07/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 7,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_131153_no_cache_07",
+      "scenario_name": "no_cache",
+      "status": "failed",
+      "ue_ip": "192.169.0.148"
+    },
+    {
+      "batch_index": 58,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_131244_no_cache_08/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 8,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_131244_no_cache_08",
+      "scenario_name": "no_cache",
+      "status": "failed",
+      "ue_ip": "192.169.0.149"
+    },
+    {
+      "batch_index": 59,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_131334_no_cache_09/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 9,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_131334_no_cache_09",
+      "scenario_name": "no_cache",
+      "status": "failed",
+      "ue_ip": "192.169.0.150"
+    },
+    {
+      "batch_index": 60,
+      "error": "iperf3 server exited early, see /home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_131424_no_cache_10/iperf_server.log",
+      "iperf_mbps": "",
+      "iteration": 10,
+      "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_114919_night_30runs/runs/20260412_131424_no_cache_10",
+      "scenario_name": "no_cache",
+      "status": "failed",
+      "ue_ip": "192.169.0.151"
+    }
+  ]
+}

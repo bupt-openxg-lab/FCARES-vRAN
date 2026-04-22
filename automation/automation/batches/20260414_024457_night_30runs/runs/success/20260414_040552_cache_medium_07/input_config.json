@@ -1,0 +1,55 @@
+{
+  "artifacts_root": "/home/bupt/wlh/ran/automation/automation/batches/20260414_024457_night_30runs/runs",
+  "gnb": {
+    "log_source_path": "/dev/shm/openair.log",
+    "max_retries": 2,
+    "retry_delay_sec": 10,
+    "start_command": "sudo -n /usr/bin/bash /home/bupt/wlh/ran/cmake_targets/run_gNB.sh",
+    "startup_wait_sec": 8,
+    "stop_command": "sudo -n /usr/bin/pkill -INT -f /home/bupt/wlh/ran/cmake_targets/ran_build/build/nr-softmodem",
+    "workdir": "/home/bupt/wlh/ran/cmake_targets"
+  },
+  "iperf_client": {
+    "bind_to_tunnel_ip": true,
+    "bitrate": "100M",
+    "duration_sec": 60,
+    "extra_args": [
+      "--json"
+    ],
+    "protocol": "tcp",
+    "remote_log_path": "/tmp/oai-automation/iperf_client.log",
+    "reverse": false
+  },
+  "iperf_server": {
+    "host_for_client": "10.156.64.40",
+    "mode": "local",
+    "port": 5201
+  },
+  "metadata": {
+    "batch_index": 37,
+    "batch_name": "night_30runs",
+    "persistent_stress": true,
+    "scenario_iteration": 7,
+    "scenario_name": "cache_medium"
+  },
+  "run_label": "cache_medium_07",
+  "stress": {
+    "command": "taskset -c 8-15 stress-ng --cache 16 --cache-level 3 --timeout 6000s --metrics-brief",
+    "enabled": false,
+    "remote_log_path": "/tmp/oai-automation/stress.log",
+    "target": "local"
+  },
+  "ue": {
+    "continue_on_start_timeout": true,
+    "log_source_path": " ",
+    "poll_interval_sec": 5,
+    "ready_timeout_sec": 20,
+    "remote_log_path": "/tmp/oai-automation/ue_start.log",
+    "ssh_target": "ubuntu@10.156.64.39",
+    "start_command": "sudo -n /usr/bin/bash  /home/ubuntu/hcs/openairinterface5g_2025_w10/run_nrUE.sh",
+    "start_timeout_sec": 20,
+    "stop_command": "sudo -n /usr/bin/pkill -INT -f /home/ubuntu/hcs/openairinterface5g_2025_w10/cmake_targets/ran_build/build/nr-uesoftmodem",
+    "tun_interface": "oaitun_ue1",
+    "workdir": "/home/ubuntu/hcs/openairinterface5g_2025_w10"
+  }
+}

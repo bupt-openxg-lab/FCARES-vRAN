@@ -1,0 +1,32 @@
+{
+  "bringup_attempt": 1,
+  "config_path": "/home/bupt/wlh/ran/automation/config.example.json",
+  "finished_at": "2026-04-17T12:34:44.405111",
+  "gnb_attempts_used": 1,
+  "gnb_log": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_123011_cache_medium_02/gnb_attempt01.log",
+  "gnb_start_log": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_123011_cache_medium_02/gnb_start_attempt01.log",
+  "iperf": {
+    "bits_per_second": 99999536.30488555,
+    "mbps": 100.0,
+    "parser": "json"
+  },
+  "iperf_client_remote_log": "/tmp/oai-automation/iperf_client.log",
+  "iperf_client_returncode": 0,
+  "metadata": {
+    "batch_index": 12,
+    "batch_name": "night_30runs",
+    "persistent_stress": true,
+    "scenario_iteration": 2,
+    "scenario_name": "cache_medium"
+  },
+  "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_123011_cache_medium_02",
+  "run_label": "cache_medium_02",
+  "started_at": "2026-04-17T12:30:11.540618",
+  "status": "ok",
+  "ue_ip": "192.169.1.81",
+  "ue_log": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_123011_cache_medium_02/ue_attempt01.log",
+  "ue_remote_log": "/tmp/oai-automation/ue_start_attempt01.log",
+  "ue_remote_pid": null,
+  "ue_start_log": "/home/bupt/wlh/ran/automation/automation/batches/20260417_113947_night_30runs/runs/20260417_123011_cache_medium_02/ue_start_attempt01.log",
+  "ue_start_warning": "Timed out while starting remote background process on ubuntu@10.156.64.39 after 20s, and could not recover pid from /tmp/oai-automation/ue_start_attempt01.log.pid. The remote process may have started but the launcher did not detach cleanly."
+}

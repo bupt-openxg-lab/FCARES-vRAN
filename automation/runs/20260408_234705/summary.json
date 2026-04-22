@@ -1,0 +1,20 @@
+{
+  "bringup_attempt": 2,
+  "bringup_failures": [
+    {
+      "attempt": 1,
+      "error": "Timed out waiting for oaitun_ue1 on ubuntu@10.156.64.39"
+    }
+  ],
+  "config_path": "/home/bupt/wlh/ran/automation/config.example.json",
+  "finished_at": "2026-04-08T23:47:49.138053",
+  "gnb_log": "/home/bupt/wlh/ran/automation/runs/20260408_234705/gnb_attempt02.log",
+  "gnb_start_log": "/home/bupt/wlh/ran/automation/runs/20260408_234705/gnb_start_attempt02.log",
+  "run_dir": "/home/bupt/wlh/ran/automation/runs/20260408_234705",
+  "started_at": "2026-04-08T23:47:05.096690",
+  "status": "running",
+  "ue_log": "/home/bupt/wlh/ran/automation/runs/20260408_234705/ue_attempt01.log",
+  "ue_remote_log": "/tmp/oai-automation/ue_start_attempt01.log",
+  "ue_remote_pid": 4604,
+  "ue_start_log": "/home/bupt/wlh/ran/automation/runs/20260408_234705/ue_start_attempt01.log"
+}

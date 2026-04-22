@@ -312,9 +312,10 @@ typedef struct {
   int16_t log2_maxh;
   /// measured RX power based on DRS
   uint32_t ulsch_power[8];
+  // uint32_t ulsch_min_snr[8];
   /// total signal over antennas
   uint32_t ulsch_power_tot;
-  /// measured RX noise power
+  /// measured RX noise power  
   uint32_t ulsch_noise_power[8];
   /// total noise over antennas
   uint32_t ulsch_noise_power_tot;

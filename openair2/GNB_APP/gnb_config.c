@@ -1633,6 +1633,24 @@ void RCconfig_nr_macrlc(configmodule_interface_t *cfg)
         ul_bler_options->harq_round_max = 1;
       else
         ul_bler_options->harq_round_max = *(MacRLC_ParamList.paramarray[j][MACRLC_UL_HARQ_ROUND_MAX_IDX].u8ptr);
+      RC.nrmac[j]->ul_mcs_scan_enabled = *(MacRLC_ParamList.paramarray[j][MACRLC_UL_MCS_SCAN_ENABLED_IDX].u8ptr);
+      RC.nrmac[j]->ul_mcs_scan_ref = *(MacRLC_ParamList.paramarray[j][MACRLC_UL_MCS_SCAN_REF_IDX].u8ptr);
+      RC.nrmac[j]->ul_mcs_scan_auto_sweep = *(MacRLC_ParamList.paramarray[j][MACRLC_UL_MCS_SCAN_AUTO_SWEEP_IDX].u8ptr);
+      RC.nrmac[j]->ul_mcs_scan_min_mcs = *(MacRLC_ParamList.paramarray[j][MACRLC_UL_MCS_SCAN_MIN_MCS_IDX].u8ptr);
+      RC.nrmac[j]->ul_mcs_scan_max_mcs = *(MacRLC_ParamList.paramarray[j][MACRLC_UL_MCS_SCAN_MAX_MCS_IDX].u8ptr);
+      RC.nrmac[j]->ul_mcs_scan_period = *(MacRLC_ParamList.paramarray[j][MACRLC_UL_MCS_SCAN_PERIOD_IDX].uptr);
+      RC.nrmac[j]->ul_mcs_scan_start = *(MacRLC_ParamList.paramarray[j][MACRLC_UL_MCS_SCAN_START_IDX].u8ptr);
+      RC.nrmac[j]->ul_mcs_scan_rb_period = *(MacRLC_ParamList.paramarray[j][MACRLC_UL_MCS_SCAN_RB_PERIOD_IDX].uptr);
+      RC.nrmac[j]->ul_mcs_scan_rb_accum_frames = 0;
+      RC.nrmac[j]->ul_mcs_scan_current_rb = 5;
+      for (int mcs = 0; mcs < 29; mcs++) {
+        RC.nrmac[j]->ul_mcs_scan_rb_per_mcs[mcs] = 5;
+      }
+      LOG_I(NR_MAC, "UL MCS Scan: enabled=%d, ref=%d, auto_sweep=%d, min=%d, max=%d, period=%u, start=%d, rb_period=%u\n",
+            RC.nrmac[j]->ul_mcs_scan_enabled, RC.nrmac[j]->ul_mcs_scan_ref, 
+            RC.nrmac[j]->ul_mcs_scan_auto_sweep, RC.nrmac[j]->ul_mcs_scan_min_mcs,
+            RC.nrmac[j]->ul_mcs_scan_max_mcs, RC.nrmac[j]->ul_mcs_scan_period,
+            RC.nrmac[j]->ul_mcs_scan_start, RC.nrmac[j]->ul_mcs_scan_rb_period);
       RC.nrmac[j]->min_grant_prb = *(MacRLC_ParamList.paramarray[j][MACRLC_MIN_GRANT_PRB_IDX].u8ptr);
       RC.nrmac[j]->min_grant_mcs = *(MacRLC_ParamList.paramarray[j][MACRLC_MIN_GRANT_MCS_IDX].u8ptr);
       RC.nrmac[j]->identity_pm = *(MacRLC_ParamList.paramarray[j][MACRLC_IDENTITY_PM_IDX].u8ptr);

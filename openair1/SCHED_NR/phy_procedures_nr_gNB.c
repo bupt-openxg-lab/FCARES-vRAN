@@ -324,7 +324,7 @@ static int nr_ulsch_procedures(PHY_VARS_gNB *gNB, int frame_rx, int slot_rx, boo
     }
   }
 
-  LOG_W(PHY,"**********in nr_ulsch_procedures, frame_rx is %d, nb_pusch is %d \n", frame_rx, nb_pusch);
+  // LOG_W(PHY,"**********in nr_ulsch_procedures, frame_rx is %d, nb_pusch is %d \n", frame_rx, nb_pusch);
 
   if (nb_pusch == 0) {
     return 0;
@@ -407,6 +407,7 @@ static int nr_ulsch_procedures(PHY_VARS_gNB *gNB, int frame_rx, int slot_rx, boo
       }
     }
 
+
     nfapi_nr_crc_t *crc = &UL_INFO->crc_ind.crc_list[UL_INFO->crc_ind.number_crcs++];
     nfapi_nr_rx_data_pdu_t *pdu = &UL_INFO->rx_ind.pdu_list[UL_INFO->rx_ind.number_of_pdus++];
     if (crc_valid && !check_abort(&ulsch_harq->abort_decode) && !pusch->DTX) {
@@ -449,7 +450,25 @@ static int nr_ulsch_procedures(PHY_VARS_gNB *gNB, int frame_rx, int slot_rx, boo
       ulsch->handled = 1;
       LOG_D(PHY, "ULSCH %d in error\n",ULSCH_id);
       ulsch->last_iteration_cnt = ulsch->max_ldpc_iterations + 1; // Setting to max_ldpc_iterations + 1 is sufficient given that this variable is only used for checking for failure
+
     }
+    const bool aborted = check_abort(&ulsch_harq->abort_decode);
+    const bool dtx = pusch->DTX;
+    const bool tb_done = (ulsch_harq->processedSegments == ulsch_harq->C);
+    const bool will_report_ack = (crc_valid && !aborted && !dtx);
+
+    LOG_W(NR_PHY,
+          "[ULSCH-CRC] %d.%d ULSCH_id=%u rnti=0x%04x processed=%u tb_done=%d crc_valid=%d aborted=%d DTX=%d => report=%s\n",
+          frame_rx,
+          slot_rx,
+          ULSCH_id,
+          ulsch->rnti,
+          ulsch_harq->processedSegments,
+          tb_done,
+          crc_valid,
+          aborted,
+          dtx,
+          will_report_ack ? "ACK" : "NAK/NO-REPORT");
   }
 
   return ret_nr_ulsch_decoding;
@@ -505,10 +524,11 @@ void nr_fill_indication(PHY_VARS_gNB *gNB,
   int SNRtimes10 =
       dB_fixed_x10(gNB->pusch_vars[ULSCH_id].ulsch_power_tot) - dB_fixed_x10(gNB->pusch_vars[ULSCH_id].ulsch_noise_power_tot);
 
-  LOG_D(PHY,
-        "%d.%d: Estimated SNR for PUSCH is = %f dB (ulsch_power %f, noise %f) delay %d\n",
+  LOG_W(PHY,
+        "%d.%d: Estimated SNR for PUSCH (UE %04x) is = %f dB (ulsch_power %f, noise %f) delay %d\n",
         frame,
         slot_rx,
+        ulsch->rnti,
         SNRtimes10 / 10.0,
         dB_fixed_x10(gNB->pusch_vars[ULSCH_id].ulsch_power_tot) / 10.0,
         dB_fixed_x10(gNB->pusch_vars[ULSCH_id].ulsch_noise_power_tot) / 10.0,
@@ -858,9 +878,10 @@ int phy_procedures_gNB_uespec_RX(PHY_VARS_gNB *gNB, int frame_rx, int slot_rx, N
       }
       if (dB_fixed_x10(pusch_vars->ulsch_power_tot) < dB_fixed_x10(pusch_vars->ulsch_noise_power_tot) + gNB->pusch_thres) {
         NR_gNB_PHY_STATS_t *stats = get_phy_stats(gNB, ulsch->rnti);
-
-        LOG_D(PHY,
-              "PUSCH not detected in %d.%d (%d,%d,%d)\n",
+        LOG_D(PHY, "PUSCH ID %d with RNTI %x detection started in frame %d slot %d\n", ULSCH_id, ulsch->rnti, frame_rx, slot_rx);
+        LOG_W(PHY,
+              "PUSCH (RNTI %x) not detected in %d.%d (%d,%d,%d)\n",
+              ulsch->rnti,
               frame_rx,
               slot_rx,
               dB_fixed_x10(pusch_vars->ulsch_power_tot),

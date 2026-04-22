@@ -28,6 +28,8 @@
 #include <pthread.h>
 #include "common/config/config_userapi.h"
 #include "common/utils/threadPool/notified_fifo.h"
+#include "dlfcn.h"
+#include "common/utils/LOG/log.h"
 // global var for openair performance profiler
 int cpu_meas_enabled = 1;
 double cpu_freq_GHz  __attribute__ ((aligned(32)));
@@ -192,7 +194,13 @@ double get_time_meas_us(time_stats_t *ts)
   // if(result > 3000)LOG_W(UTIL, "ts->p_time = %lld, ts->in =  %lld, ts->out = %lld,result = %.3f\n", ts->p_time, ts->in, ts->out,result);
   if(result > 3000){
       int cpu = sched_getcpu();  // 获取当前 CPU 核心
-      printf("cpu%d: ts->p_time = %lld,result = %.3f us\n", cpu, ts->p_time,result);
+      void *caller_addr = __builtin_return_address(0);
+      Dl_info info;
+      const char *caller_name = "unknown";
+      if (caller_addr && dladdr(caller_addr,&info) && info.dli_sname){
+        caller_name = info.dli_sname;
+      }
+      LOG_W(PHY,"cpu%d(called by %s): ts->p_time = %lld,result = %.3f us\n", cpu, caller_name, ts->p_time,result);
     }
   return result;
   return 0;

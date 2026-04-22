@@ -1,0 +1,32 @@
+{
+  "bringup_attempt": 3,
+  "bringup_failures": [
+    {
+      "attempt": 1,
+      "error": "Command '['ssh', '-o', 'BatchMode=yes', 'ubuntu@10.156.64.39', \"bash -lc 'test -s /tmp/oai-automation/ue_start_attempt01.log.pid && cat /tmp/oai-automation/ue_start_attempt01.log.pid'\"]' timed out after 5 seconds"
+    },
+    {
+      "attempt": 2,
+      "error": "Command '['ssh', '-o', 'BatchMode=yes', 'ubuntu@10.156.64.39', \"bash -lc 'test -s /tmp/oai-automation/ue_start_attempt02.log.pid && cat /tmp/oai-automation/ue_start_attempt02.log.pid'\"]' timed out after 5 seconds"
+    },
+    {
+      "attempt": 3,
+      "error": "Command '['ssh', '-o', 'BatchMode=yes', 'ubuntu@10.156.64.39', \"bash -lc 'test -s /tmp/oai-automation/ue_start_attempt03.log.pid && cat /tmp/oai-automation/ue_start_attempt03.log.pid'\"]' timed out after 5 seconds"
+    }
+  ],
+  "config_path": "/home/bupt/wlh/ran/automation/config.example.json",
+  "error": "Command '['ssh', '-o', 'BatchMode=yes', 'ubuntu@10.156.64.39', \"bash -lc 'test -s /tmp/oai-automation/ue_start_attempt03.log.pid && cat /tmp/oai-automation/ue_start_attempt03.log.pid'\"]' timed out after 5 seconds",
+  "finished_at": "2026-04-09T10:19:18.541960",
+  "gnb_log": "/home/bupt/wlh/ran/automation/automation/batches/20260409_093004_night_30runs/runs/20260409_101709_cache_heavy_04/gnb_attempt03.log",
+  "gnb_start_log": "/home/bupt/wlh/ran/automation/automation/batches/20260409_093004_night_30runs/runs/20260409_101709_cache_heavy_04/gnb_start_attempt03.log",
+  "metadata": {
+    "batch_index": 24,
+    "batch_name": "night_30runs",
+    "scenario_iteration": 4,
+    "scenario_name": "cache_heavy"
+  },
+  "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260409_093004_night_30runs/runs/20260409_101709_cache_heavy_04",
+  "run_label": "cache_heavy_04",
+  "started_at": "2026-04-09T10:17:09.069009",
+  "status": "failed"
+}

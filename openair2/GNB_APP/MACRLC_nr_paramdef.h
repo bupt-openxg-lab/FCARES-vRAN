@@ -77,6 +77,14 @@
 #define CONFIG_STRING_MACRLC_BEAMS_PERIOD                  "beams_per_period"
 #define CONFIG_STRING_MACRLC_PUSCH_RSSI_THRESHOLD          "pusch_RSSI_Threshold"
 #define CONFIG_STRING_MACRLC_PUCCH_RSSI_THRESHOLD          "pucch_RSSI_Threshold"
+#define CONFIG_STRING_MACRLC_UL_MCS_SCAN_ENABLED           "ul_mcs_scan_enabled"
+#define CONFIG_STRING_MACRLC_UL_MCS_SCAN_REF               "ul_mcs_scan_ref"
+#define CONFIG_STRING_MACRLC_UL_MCS_SCAN_AUTO_SWEEP        "ul_mcs_scan_auto_sweep"
+#define CONFIG_STRING_MACRLC_UL_MCS_SCAN_MIN_MCS           "ul_mcs_scan_min_mcs"
+#define CONFIG_STRING_MACRLC_UL_MCS_SCAN_MAX_MCS           "ul_mcs_scan_max_mcs"
+#define CONFIG_STRING_MACRLC_UL_MCS_SCAN_PERIOD            "ul_mcs_scan_period"
+#define CONFIG_STRING_MACRLC_UL_MCS_SCAN_START             "ul_mcs_scan_start"
+#define CONFIG_STRING_MACRLC_UL_MCS_SCAN_RB_PERIOD         "ul_mcs_scan_rb_period"
 
 #define HLP_MACRLC_UL_PRBBLACK "SNR threshold to decide whether a PRB will be blacklisted or not"
 #define HLP_MACRLC_DL_BLER_UP "Upper threshold of BLER to decrease DL MCS"
@@ -95,6 +103,14 @@
 #define HLP_MACRLC_BEAMS_PERIOD "set of beams that can be simultaneously allocated in a period"
 #define HLP_MACRLC_PUSCH_RSSI_THRESHOLD "Limits PUSCH TPC commands based on RSSI to prevent ADC railing. Value range [-1280, 0], unit 0.1 dBm/dBFS"
 #define HLP_MACRLC_PUCCH_RSSI_THRESHOLD "Limits PUCCH TPC commands based on RSSI to prevent ADC railing. Value range [-1280, 0], unit 0.1 dBm/dBFS"
+#define HLP_MACRLC_UL_MCS_SCAN_EN "Enable UL MCS scan mode: bypass BLER adaptive MCS, use fixed mcs_ref"
+#define HLP_MACRLC_UL_MCS_SCAN_REF "Target MCS for UL scan mode (0-28) when auto_sweep=0"
+#define HLP_MACRLC_UL_MCS_SCAN_SWEEP "Enable auto sweep: cycle through all MCS values periodically"
+#define HLP_MACRLC_UL_MCS_SCAN_MIN "Minimum MCS for auto sweep (default 5)"
+#define HLP_MACRLC_UL_MCS_SCAN_MAX "Maximum MCS for auto sweep (default 28)"
+#define HLP_MACRLC_UL_MCS_SCAN_PERIOD "Number of frames to hold each MCS value in auto sweep (default 100)"
+#define HLP_MACRLC_UL_MCS_SCAN_START "Starting MCS for auto sweep (default 9, scan from this value upward)"
+#define HLP_MACRLC_UL_MCS_SCAN_RB_PERIOD "Number of frames before incrementing RB by 5 (default 10)"
 
 /*-------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*                                            MacRLC  configuration parameters                                                                           */
@@ -144,6 +160,14 @@
                                                                                0, .iptr=NULL,   .defintval=0,               TYPE_INT,     0}, \
   {CONFIG_STRING_MACRLC_PUCCH_RSSI_THRESHOLD,        HLP_MACRLC_PUCCH_RSSI_THRESHOLD, \
                                                                                0, .iptr=NULL,   .defintval=0,               TYPE_INT,     0}, \
+  {CONFIG_STRING_MACRLC_UL_MCS_SCAN_ENABLED,         HLP_MACRLC_UL_MCS_SCAN_EN,  PARAMFLAG_BOOL, .u8ptr=NULL, .defintval=0,   TYPE_UINT8,   0}, \
+  {CONFIG_STRING_MACRLC_UL_MCS_SCAN_REF,             HLP_MACRLC_UL_MCS_SCAN_REF, 0, .u8ptr=NULL,  .defintval=9,               TYPE_UINT8,   0}, \
+  {CONFIG_STRING_MACRLC_UL_MCS_SCAN_AUTO_SWEEP,      HLP_MACRLC_UL_MCS_SCAN_SWEEP, PARAMFLAG_BOOL, .u8ptr=NULL, .defintval=0,   TYPE_UINT8,   0}, \
+  {CONFIG_STRING_MACRLC_UL_MCS_SCAN_MIN_MCS,         HLP_MACRLC_UL_MCS_SCAN_MIN, 0, .u8ptr=NULL,  .defintval=5,               TYPE_UINT8,   0}, \
+  {CONFIG_STRING_MACRLC_UL_MCS_SCAN_MAX_MCS,         HLP_MACRLC_UL_MCS_SCAN_MAX, 0, .u8ptr=NULL,  .defintval=28,              TYPE_UINT8,   0}, \
+  {CONFIG_STRING_MACRLC_UL_MCS_SCAN_PERIOD,          HLP_MACRLC_UL_MCS_SCAN_PERIOD, 0, .uptr=NULL,  .defintval=100,             TYPE_UINT,    0}, \
+  {CONFIG_STRING_MACRLC_UL_MCS_SCAN_START,           HLP_MACRLC_UL_MCS_SCAN_START, 0, .u8ptr=NULL,  .defintval=9,               TYPE_UINT8,   0}, \
+  {CONFIG_STRING_MACRLC_UL_MCS_SCAN_RB_PERIOD,       HLP_MACRLC_UL_MCS_SCAN_RB_PERIOD, 0, .uptr=NULL,  .defintval=10,              TYPE_UINT,    0}, \
 }
 // clang-format off
 
@@ -187,6 +211,14 @@
 #define MACRLC_ANALOG_BEAMS_PERIOD_IDX                         37
 #define MACRLC_PUSCH_RSSI_THRES_IDX                            38
 #define MACRLC_PUCCH_RSSI_THRES_IDX                            39
+#define MACRLC_UL_MCS_SCAN_ENABLED_IDX                         40
+#define MACRLC_UL_MCS_SCAN_REF_IDX                             41
+#define MACRLC_UL_MCS_SCAN_AUTO_SWEEP_IDX                      42
+#define MACRLC_UL_MCS_SCAN_MIN_MCS_IDX                         43
+#define MACRLC_UL_MCS_SCAN_MAX_MCS_IDX                         44
+#define MACRLC_UL_MCS_SCAN_PERIOD_IDX                          45
+#define MACRLC_UL_MCS_SCAN_START_IDX                           46
+#define MACRLC_UL_MCS_SCAN_RB_PERIOD_IDX                       47
 
 #define MACRLCPARAMS_CHECK { \
   { .s5 = { NULL } }, \
@@ -229,6 +261,14 @@
   { .s5 = { NULL } }, \
   { .s2 =  { config_check_intrange, {-1280, 0}} }, /* PUSCH RSSI threshold range */ \
   { .s2 =  { config_check_intrange, {-1280, 0}} }, /* PUCCH RSSI threshold range */ \
+  { .s5 = { NULL } }, /* UL MCS scan enabled */ \
+  { .s2 = { config_check_intrange, {0, 28} } }, /* UL MCS scan ref range */ \
+  { .s5 = { NULL } }, /* UL MCS scan auto sweep */ \
+  { .s2 = { config_check_intrange, {0, 28} } }, /* UL MCS scan min mcs */ \
+  { .s2 = { config_check_intrange, {0, 28} } }, /* UL MCS scan max mcs */ \
+  { .s5 = { NULL } }, /* UL MCS scan period */ \
+  { .s2 = { config_check_intrange, {0, 28} } }, /* UL MCS scan start */ \
+  { .s5 = { NULL } }, /* UL MCS scan cb period */ \
 }
 
 /*---------------------------------------------------------------------------------------------------------------------------------------------------------*/

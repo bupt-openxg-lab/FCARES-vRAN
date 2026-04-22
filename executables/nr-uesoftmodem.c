@@ -401,6 +401,7 @@ int main(int argc, char **argv)
   memset(tx_max_power,0,sizeof(int)*MAX_NUM_CCs);
   // initialize logging
   logInit();
+  // set_glog_filelog(1);
   // get options and fill parameters from configuration file
 
   get_options(uniqCfg); // Command-line options specific for NRUE

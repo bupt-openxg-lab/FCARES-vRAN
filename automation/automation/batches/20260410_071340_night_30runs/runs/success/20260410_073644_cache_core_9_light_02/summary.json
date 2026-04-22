@@ -1,0 +1,33 @@
+{
+  "bringup_attempt": 1,
+  "config_path": "/home/bupt/wlh/ran/automation/config.example.json",
+  "finished_at": "2026-04-10T07:38:38.030930",
+  "gnb_attempts_used": 1,
+  "gnb_log": "/home/bupt/wlh/ran/automation/automation/batches/20260410_071340_night_30runs/runs/20260410_073644_cache_core_9_light_02/gnb_attempt01.log",
+  "gnb_start_log": "/home/bupt/wlh/ran/automation/automation/batches/20260410_071340_night_30runs/runs/20260410_073644_cache_core_9_light_02/gnb_start_attempt01.log",
+  "iperf": {
+    "bits_per_second": 45501542.68846,
+    "mbps": 45.5,
+    "parser": "json"
+  },
+  "iperf_client_remote_log": "/tmp/oai-automation/iperf_client.log",
+  "iperf_client_returncode": 0,
+  "metadata": {
+    "batch_index": 12,
+    "batch_name": "night_30runs",
+    "scenario_iteration": 2,
+    "scenario_name": "cache_core_9_light"
+  },
+  "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260410_071340_night_30runs/runs/20260410_073644_cache_core_9_light_02",
+  "run_label": "cache_core_9_light_02",
+  "started_at": "2026-04-10T07:36:44.021357",
+  "status": "ok",
+  "stress_command": "taskset -c 9 stress-ng --cache 8 --cache-level 3 --timeout 6000s --metrics-brief",
+  "stress_log": "/home/bupt/wlh/ran/automation/automation/batches/20260410_071340_night_30runs/runs/20260410_073644_cache_core_9_light_02/stress.log",
+  "ue_ip": "192.169.0.22",
+  "ue_log": "/home/bupt/wlh/ran/automation/automation/batches/20260410_071340_night_30runs/runs/20260410_073644_cache_core_9_light_02/ue_attempt01.log",
+  "ue_remote_log": "/tmp/oai-automation/ue_start_attempt01.log",
+  "ue_remote_pid": null,
+  "ue_start_log": "/home/bupt/wlh/ran/automation/automation/batches/20260410_071340_night_30runs/runs/20260410_073644_cache_core_9_light_02/ue_start_attempt01.log",
+  "ue_start_warning": "Timed out while starting remote background process on ubuntu@10.156.64.39 after 20s, and could not recover pid from /tmp/oai-automation/ue_start_attempt01.log.pid. The remote process may have started but the launcher did not detach cleanly."
+}

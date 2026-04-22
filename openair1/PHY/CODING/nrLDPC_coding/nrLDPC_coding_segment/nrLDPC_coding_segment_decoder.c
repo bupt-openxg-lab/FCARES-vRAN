@@ -93,9 +93,10 @@ typedef struct nrLDPC_decoding_parameters_s {
   t_nrLDPC_dec_params decoderParms;
 
   uint8_t Qm;
-
+  uint8_t id;
   uint8_t Kc;
   uint8_t rv_index;
+
   decode_abort_t *abort_decode;
 
   uint32_t tbslbrm;
@@ -120,8 +121,13 @@ typedef struct nrLDPC_decoding_parameters_s {
   time_stats_t *p_ts_ldpc_decode;
 } nrLDPC_decoding_parameters_t;
 
+
+
+
 static void nr_process_decode_segment(void *arg)
 {
+  time_stats_t decoding_time = {0};
+  start_meas(&decoding_time);
   nrLDPC_decoding_parameters_t *rdata = (nrLDPC_decoding_parameters_t *)arg;
   t_nrLDPC_dec_params *p_decoderParms = &rdata->decoderParms;
   const int K = rdata->K;
@@ -131,6 +137,7 @@ static void nr_process_decode_segment(void *arg)
   const int Qm = rdata->Qm;
   const int rv_index = rdata->rv_index;
   const uint8_t Kc = rdata->Kc;
+  const int id = rdata->id;
   short *ulsch_llr = rdata->llr;
   int8_t llrProcBuf[OAI_LDPC_DECODER_MAX_NUM_LLR] __attribute__((aligned(32)));
 
@@ -215,9 +222,15 @@ static void nr_process_decode_segment(void *arg)
   //////////////////////////////////////////////////////////////////////////////////////////
 
   ////////////////////////////////// pl =====> llrProcBuf //////////////////////////////////
-  int decodeIterations =
-      LDPCdecoder(p_decoderParms, 0, 0, 0, l, llrProcBuf, p_procTime, rdata->abort_decode);
+  stop_meas(&decoding_time);
+  LOG_W(PHY,"id = %hhd, decoding preparation costs time %.2f us\n",id, get_time_meas_us(&decoding_time));
 
+  int decodeIterations =
+      LDPCdecoder(p_decoderParms, 0, 0, 0, l, llrProcBuf, p_procTime, rdata->abort_decode,id);
+  
+  LOG_W(PHY,"id = %hhd, decode iteration = %d,Z = %d , BG = %d\n",id, decodeIterations,rdata->Z,rdata->decoderParms.BG);
+  stop_meas(&decoding_time);
+  LOG_W(PHY,"id = %hhd, decoding one CodeBlock costs time %.2f us\n",id, get_time_meas_us(&decoding_time));
   if (decodeIterations <= p_decoderParms->numMaxIter) {
     memcpy(rdata->c, llrProcBuf, K >> 3);
     *rdata->decodeSuccess = true;
@@ -248,6 +261,7 @@ int nrLDPC_prepare_TB_decoding(nrLDPC_slot_decoding_parameters_t *nrLDPC_slot_de
     nrLDPC_decoding_parameters_t *rdata = &((nrLDPC_decoding_parameters_t *)t_info->buf)[t_info->len];
     DevAssert(t_info->len < t_info->cap);
     rdata->ans = t_info->ans;
+    rdata->id = r;
     t_info->len += 1;
 
     decParams.R = nrLDPC_TB_decoding_parameters->segments[r].R;
@@ -292,6 +306,7 @@ int32_t nrLDPC_coding_shutdown(void)
 
 int32_t nrLDPC_coding_decoder(nrLDPC_slot_decoding_parameters_t *nrLDPC_slot_decoding_parameters)
 {
+  // HIT here when decoding (test 26.3.1 )
   int nbSegments = 0;
   for (int pusch_id = 0; pusch_id < nrLDPC_slot_decoding_parameters->nb_TBs; pusch_id++) {
     nrLDPC_TB_decoding_parameters_t *nrLDPC_TB_decoding_parameters = &nrLDPC_slot_decoding_parameters->TBs[pusch_id];

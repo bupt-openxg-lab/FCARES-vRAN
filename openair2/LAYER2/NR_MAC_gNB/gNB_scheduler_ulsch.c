@@ -37,8 +37,23 @@
 #include "LAYER2/NR_MAC_COMMON/nr_mac_extern.h"
 #include "LAYER2/nr_rlc/nr_rlc_oai_api.h"
 #include "LAYER2/RLC/rlc.h"
+#include <stdlib.h>
+#include <stdint.h>
 
+#include "LAYER2/NR_MAC_gNB/leaf_model_exported.h"
+#include "LAYER2/NR_MAC_gNB/leaf_model_wrapper.h"
 //#define SRS_IND_DEBUG
+
+
+
+/* 生成 [low, high] 之间的随机整数，要求 high >= low */
+static inline uint16_t rand_in_range(uint16_t low, uint16_t high)
+{
+  if (high <= low)
+    return low;
+  return low + (rand() % (high - low + 1));
+}
+
 
 int get_ul_tda(gNB_MAC_INST *nrmac, int frame, int slot)
 {
@@ -505,7 +520,7 @@ static int nr_process_mac_pdu(instance_t module_idP,
         /* Extract short BSR value */
         ce_ptr = &pduP[mac_subheader_len];
         sched_ctrl->estimated_ul_buffer = estimate_ul_buffer_short_bsr((NR_BSR_SHORT *)ce_ptr);
-        LOG_D(NR_MAC, "SHORT BSR at %4d.%2d, est buf %d\n", frameP, slot, sched_ctrl->estimated_ul_buffer);
+        LOG_W(NR_MAC, "SHORT BSR at %4d.%2d, est buf %d\n", frameP, slot, sched_ctrl->estimated_ul_buffer);
         break;
 
       case UL_SCH_LCID_L_TRUNCATED_BSR:
@@ -513,7 +528,7 @@ static int nr_process_mac_pdu(instance_t module_idP,
         /* Extract long BSR value */
         ce_ptr = &pduP[mac_subheader_len];
         sched_ctrl->estimated_ul_buffer = estimate_ul_buffer_long_bsr((NR_BSR_LONG *)ce_ptr);
-        LOG_D(NR_MAC, "LONG BSR at %4d.%2d, estim buf %d\n", frameP, slot, sched_ctrl->estimated_ul_buffer);
+        LOG_W(NR_MAC, "LONG BSR at %4d.%2d, estim buf %d\n", frameP, slot, sched_ctrl->estimated_ul_buffer);
         break;
 
       case UL_SCH_LCID_PADDING:
@@ -635,6 +650,7 @@ void handle_nr_ul_harq(const int CC_idP,
     sched_ctrl->ul_harq_processes[harq_pid].is_waiting = false;
 
     if(sched_ctrl->ul_harq_processes[harq_pid].round >= RC.nrmac[mod_id]->ul_bler.harq_round_max - 1) {
+      LOG_W(NR_MAC, "HARQ PID %d Abort because of round exceeding\n" ,harq_pid);
       abort_nr_ul_harq(UE, harq_pid);
     } else {
       sched_ctrl->ul_harq_processes[harq_pid].round++;
@@ -1680,7 +1696,7 @@ static bool allocate_ul_retransmission(gNB_MAC_INST *nrmac,
     while (rbStart < bwpSize && (rballoc_mask[rbStart + bwpStart] & slbitmap))
       rbStart++;
     if (rbStart + retInfo->rbSize > bwpSize) {
-      LOG_D(NR_MAC, "[UE %04x][%4d.%2d] could not allocate UL retransmission: no resources (rbStart %d, retInfo->rbSize %d, bwpSize %d) \n",
+      LOG_W(NR_MAC, "[UE %04x][%4d.%2d] could not allocate UL retransmission: no resources (rbStart %d, retInfo->rbSize %d, bwpSize %d) \n",
             UE->rnti,
             frame,
             slot,
@@ -1690,7 +1706,8 @@ static bool allocate_ul_retransmission(gNB_MAC_INST *nrmac,
       return false;
     }
     LOG_D(NR_MAC, "Retransmission keeping TDA %d and TBS %d\n", tda, retInfo->tb_size);
-  } else {
+  } 
+  else {
     NR_pusch_dmrs_t dmrs_info = get_ul_dmrs_params(scc, ul_bwp, &tda_info, nrOfLayers);
     /* the retransmission will use a different time domain allocation, check
      * that we have enough resources */
@@ -1758,7 +1775,7 @@ static bool allocate_ul_retransmission(gNB_MAC_INST *nrmac,
   sched_ctrl->sched_pusch = *retInfo;
   NR_sched_pusch_t *sched_pusch = &sched_ctrl->sched_pusch;
 
-  LOG_D(NR_MAC,
+  LOG_W(NR_MAC,
         "%4d.%2d Allocate UL retransmission RNTI %04x sched %4d.%2d (%d RBs)\n",
         frame,
         slot,
@@ -1802,6 +1819,8 @@ static void pf_ul(module_id_t module_id,
   NR_ServingCellConfigCommon_t *scc = nrmac->common_channels[CC_id].ServingCellConfigCommon;
   int slots_per_frame = nrmac->frame_structure.numb_slots_frame;
   const int min_rb = nrmac->min_grant_prb;
+  // min_rb = 5
+  // LOG_W(PHY,"min_rb = %d",min_rb);
   // UEs that could be scheduled
   UEsched_t UE_sched[MAX_MOBILES_PER_GNB + 1] = {0};
   int remainUEs[num_beams];
@@ -1905,14 +1924,78 @@ static void pf_ul(module_id_t module_id,
 
     const NR_bler_options_t *bo = &nrmac->ul_bler;
     const int max_mcs_table = (current_BWP->mcs_table == 0 || current_BWP->mcs_table == 2) ? 28 : 27;
-    const int max_mcs = min(bo->max_mcs, max_mcs_table); /* no per-user maximum MCS yet */
-    if (bo->harq_round_max == 1) {
+    const int max_mcs = min(bo->max_mcs, max_mcs_table);
+    if (nrmac->ul_mcs_scan_enabled) {
+      uint8_t target_mcs;
+      if (nrmac->ul_mcs_scan_auto_sweep) {
+        uint8_t scan_min = nrmac->ul_mcs_scan_min_mcs;
+        uint8_t scan_max = min(nrmac->ul_mcs_scan_max_mcs, max_mcs);
+        uint8_t scan_start = nrmac->ul_mcs_scan_start;
+        if (scan_start < scan_min) scan_start = scan_min;
+        if (scan_start > scan_max) scan_start = scan_max;
+        int mcs_range = scan_max - scan_min + 1;
+        uint32_t period = nrmac->ul_mcs_scan_period;
+        uint32_t rb_period = nrmac->ul_mcs_scan_rb_period;
+        
+        int mcs_index = nrmac->ul_mcs_scan_current_index;
+        int upper_range = scan_max - scan_start + 1;
+        uint8_t next_target_mcs;
+        if (mcs_index + 1 < upper_range) {
+          next_target_mcs = scan_start + mcs_index + 1;
+        } else {
+          next_target_mcs = scan_min + ((mcs_index + 1) - upper_range);
+        }
+        if (next_target_mcs < scan_min) next_target_mcs = scan_min;
+        if (next_target_mcs > scan_max) next_target_mcs = scan_max;
+        
+        if (nrmac->ul_mcs_scan_last_frame != frame) {
+          nrmac->ul_mcs_scan_last_frame = frame;
+          
+          nrmac->ul_mcs_scan_accum_frames++;
+          nrmac->ul_mcs_scan_rb_accum_frames++;
+          
+          if (nrmac->ul_mcs_scan_accum_frames >= period) {
+            nrmac->ul_mcs_scan_accum_frames = 0;
+            nrmac->ul_mcs_scan_current_index++;
+            if (nrmac->ul_mcs_scan_current_index >= mcs_range) {
+              nrmac->ul_mcs_scan_current_index = 0;
+            }
+            nrmac->ul_mcs_scan_current_rb = nrmac->ul_mcs_scan_rb_per_mcs[next_target_mcs];
+            nrmac->ul_mcs_scan_rb_accum_frames = 0;
+          }
+          
+          if (nrmac->ul_mcs_scan_rb_accum_frames >= rb_period) {
+            nrmac->ul_mcs_scan_rb_accum_frames = 0;
+            nrmac->ul_mcs_scan_current_rb = (nrmac->ul_mcs_scan_current_rb + 5) % 274;
+            if (nrmac->ul_mcs_scan_current_rb < 5) nrmac->ul_mcs_scan_current_rb = nrmac->ul_mcs_scan_current_rb + 5;
+          }
+        }
+        
+        mcs_index = nrmac->ul_mcs_scan_current_index;
+        upper_range = scan_max - scan_start + 1;
+        if (mcs_index < upper_range) {
+          target_mcs = scan_start + mcs_index;
+        } else {
+          target_mcs = scan_min + (mcs_index - upper_range);
+        }
+        
+        nrmac->ul_mcs_scan_rb_per_mcs[target_mcs] = nrmac->ul_mcs_scan_current_rb;
+        
+        LOG_W(NR_MAC,"%d.%d UL MCS SWEEP: mcs=%d, rb=%d\n",
+              frame, slot, target_mcs, nrmac->ul_mcs_scan_current_rb);
+      } else {
+        target_mcs = nrmac->ul_mcs_scan_ref;
+      }
+      sched_pusch->mcs = min(target_mcs, max_mcs);
+      sched_ctrl->ul_bler_stats.mcs = sched_pusch->mcs;
+    } else if (bo->harq_round_max == 1) {
       sched_pusch->mcs = max_mcs;
       sched_ctrl->ul_bler_stats.mcs = sched_pusch->mcs;
     } else {
       sched_pusch->mcs = get_mcs_from_bler(bo, stats, &sched_ctrl->ul_bler_stats, max_mcs, frame);
-      LOG_D(NR_MAC,"%d.%d starting mcs %d bleri %f\n", frame, slot, sched_pusch->mcs, sched_ctrl->ul_bler_stats.bler);
+      LOG_W(NR_MAC,"%d.%d starting mcs %d bleri %f,bo->max_mcs = %d\n", frame, slot, sched_pusch->mcs, sched_ctrl->ul_bler_stats.bler,bo->max_mcs);
     }
+    // LOG_W(NR_MAC,"sched_pusch->mcs = %d",sched_pusch->mcs);
     /* Schedule UE on SR or UL inactivity and no data (otherwise, will be scheduled
      * based on data to transmit) */
     if (B == 0 && do_sched) {
@@ -2102,17 +2185,34 @@ static void pf_ul(module_id_t module_id,
     const uint16_t slbitmap = SL_to_bitmap(sched_pusch->tda_info.startSymbolIndex, sched_pusch->tda_info.nrOfSymbols);
     const uint32_t bwpSize = current_BWP->BWPSize;
     const uint32_t bwpStart = current_BWP->BWPStart;
+    // LOG_W(PHY,"bwpsize = %d,bwpstart = %d",bwpSize,bwpStart);
     while (rbStart < bwpSize && (rballoc_mask[rbStart + bwpStart] & slbitmap))
       rbStart++;
   
     sched_pusch->rbStart = rbStart;
     uint16_t max_rbSize = 1;
+    uint16_t max_hcs_rb_size;
+    if (nrmac->ul_mcs_scan_enabled && nrmac->ul_mcs_scan_auto_sweep) {
+      max_hcs_rb_size = nrmac->ul_mcs_scan_current_rb;
+      if (max_hcs_rb_size < 5) max_hcs_rb_size = 5;
+      if (max_hcs_rb_size > 273) max_hcs_rb_size = 273;
+    } else {
+      max_hcs_rb_size = rand_in_range(10, 273);
+    }
+    // uint16_t max_hcs_rb_size = 150;
     while (rbStart + max_rbSize < bwpSize && !(rballoc_mask[rbStart + bwpStart + max_rbSize] & slbitmap)){
             max_rbSize++;
     }
+    max_rbSize = min(max_rbSize, max_hcs_rb_size);
+    
+    // double prediction =  LeafModelExported_predict_runtime_cost_p70(sched_pusch->mcs, sched_pusch->tda_info.nrOfSymbols,max_rbSize,sched_ctrl->ul_harq_processes[sched_pusch->ul_harq_pid].round);
+    // int best_prb = select_prb(sched_pusch->mcs,sched_pusch->tda_info.nrOfSymbols,max_rbSize,sched_ctrl->ul_harq_processes[sched_pusch->ul_harq_pid].round);
+    LOG_W(PHY,"max_rbSize = %hd\n",max_rbSize);
+    // LOG_W(PHY,"max_rbSize = %hd,prediction = %f\n",max_rbSize,prediction);
+    // max_rbSize = best_prb;
       //by Luhan
-    LOG_W(MAC,"---------------by Luhan, max_rbSize is %d, slot is %d, sched_slot is %d \n",max_rbSize, slot,sched_slot);
-
+    // LOG_W(MAC,"---------------by Luhan, max_rbSize is %d, slot is %d, sched_slot is %d \n",max_rbSize, slot,sched_slot);
+    
     if (rbStart + min_rb >= bwpSize || max_rbSize < min_rb) {
       reset_beam_status(&nrmac->beam_info, frame, slot, iterator->UE->UE_beam_index, slots_per_frame, dci_beam.new_beam);
       reset_beam_status(&nrmac->beam_info, sched_frame, sched_slot, iterator->UE->UE_beam_index, slots_per_frame, beam.new_beam);
@@ -2139,9 +2239,9 @@ static void pf_ul(module_id_t module_id,
     /* adjust rbSize and MCS according to PHR and BPRE */
     if(sched_ctrl->pcmax != 0 || sched_ctrl->ph != 0) // verify if the PHR related parameter have been initialized
       nr_ue_max_mcs_min_rb(current_BWP->scs, sched_ctrl->ph, sched_pusch, current_BWP, min_rb, B, &max_rbSize, &sched_pusch->mcs);
-
+    
     if (sched_pusch->mcs < sched_ctrl->ul_bler_stats.mcs)
-      sched_ctrl->ul_bler_stats.mcs = sched_pusch->mcs; /* force estimated MCS down */
+    sched_ctrl->ul_bler_stats.mcs = sched_pusch->mcs; /* force estimated MCS down */
 
     update_ul_ue_R_Qm(sched_pusch->mcs, current_BWP->mcs_table, current_BWP->pusch_Config, &sched_pusch->R, &sched_pusch->Qm);
     uint16_t rbSize = 0;
@@ -2175,9 +2275,19 @@ static void pf_ul(module_id_t module_id,
     sched_pusch->tb_size = TBS;
     sched_pusch->frame = sched_frame;
     sched_pusch->slot = sched_slot;
-    //by Luhan
+    uint32_t B_bits = sched_pusch->tb_size << 3;
+    uint8_t BG = get_BG(B_bits, sched_pusch->R);
+    uint32_t Kcb = (BG == 1) ? 8448 : 3840;
+    uint32_t num_cb;
+    if (B_bits <= Kcb) {
+      num_cb = 1;
+    } else {
+      num_cb = B_bits / (Kcb - 24);
+      if ((Kcb - 24) * num_cb < B_bits)
+        num_cb++;
+    }
     LOG_W(NR_MAC,
-          "rbSize %d (max_rbSize %d), TBS %d, est buf %d, sched_ul %d, B %d, CCE %d, num_dmrs_symb %d, N_PRB_DMRS %d\n",
+          "rbSize %d (max_rbSize %d), TBS %d, est buf %d, sched_ul %d, B %d, CCE %d, num_dmrs_symb %d, N_PRB_DMRS %d, BG=%d, num_cb=%d\n",
           rbSize,
           max_rbSize,
           sched_pusch->tb_size,
@@ -2186,7 +2296,9 @@ static void pf_ul(module_id_t module_id,
           B,
           sched_ctrl->cce_index,
           sched_pusch->dmrs_info.num_dmrs_symb,
-          sched_pusch->dmrs_info.N_PRB_DMRS);
+          sched_pusch->dmrs_info.N_PRB_DMRS,
+          BG,
+          num_cb);
 
     /* Mark the corresponding RBs as used */
 
@@ -2221,11 +2333,11 @@ static bool nr_ulsch_preprocessor(module_id_t module_id, frame_t frame, sub_fram
   const int sched_frame = (frame + (slot + K2) / slots_frame) % MAX_FRAME_NUMBER;
   const int sched_slot = (slot + K2) % slots_frame;
   //by Luhan
-  LOG_W(MAC, "----in nr_ulsch_preprossor, frame is %d, sched_slot is %d , K2 is %d, slot is %d \n", frame, sched_slot, K2,slot);
+  // LOG_W(MAC, "----in nr_ulsch_preprossor, frame is %d, sched_slot is %d , K2 is %d, slot is %d \n", frame, sched_slot, K2,slot);
 
   if (!is_ul_slot(sched_slot, &nr_mac->frame_structure))
   {
-     LOG_W(MAC, "----in nr_ulsch_preprossor, sched_slot is %d , IS NOT UL \n",sched_slot);
+    //  LOG_W(MAC, "----in nr_ulsch_preprossor, sched_slot is %d , IS NOT UL \n",sched_slot);
     return false;
   }
     
@@ -2287,15 +2399,15 @@ void nr_schedule_ulsch(module_id_t module_id, frame_t frame, sub_frame_t slot, n
   /* Uplink data ONLY can be scheduled when the current slot is downlink slot,
    * because we have to schedule the DCI0 first before schedule uplink data */
   //by Luhan
-  LOG_W(NR_MAC, "!!!!!!Current slot %d is slot\n",slot);
+  // LOG_W(NR_MAC, "!!!!!!Current slot %d is slot\n",slot);
   if (!is_dl_slot(slot, &nr_mac->frame_structure)) {
-    LOG_W(NR_MAC, "!!!!!!Current slot %d is NOT DL slot, cannot schedule DCI0 for UL data\n", slot);
+    // LOG_W(NR_MAC, "!!!!!!Current slot %d is NOT DL slot, cannot schedule DCI0 for UL data\n", slot);
     return;
   }
   bool do_sched = nr_mac->pre_processor_ul(module_id, frame, slot);
   if (!do_sched)
   {
-    LOG_W(NR_MAC, "!!!!!!Cannot schedule uplink, current dl slot is %d\n",slot);
+    // LOG_W(NR_MAC, "!!!!!!Cannot schedule uplink, current dl slot is %d\n",slot);
     return;
   }
     
@@ -2393,7 +2505,7 @@ void nr_schedule_ulsch(module_id_t module_id, frame_t frame, sub_frame_t slot, n
     sched_ctrl->last_ul_frame = sched_pusch->frame;
     sched_ctrl->last_ul_slot = sched_pusch->slot;
 
-    LOG_D(NR_MAC,
+    LOG_W(NR_MAC,
           "ULSCH/PUSCH: %4d.%2d RNTI %04x UL sched %4d.%2d DCI L %d start %2d RBS %3d startSymbol %2d nb_symbol %2d dmrs_pos %x MCS Table %2d MCS %2d nrOfLayers %2d num_dmrs_cdm_grps_no_data %2d TBS %4d HARQ PID %2d round %d RV %d NDI %d est %6d sched %6d est BSR %6d TPC %d\n",
           frame,
           slot,
@@ -2517,11 +2629,11 @@ void nr_schedule_ulsch(module_id_t module_id, frame_t frame, sub_frame_t slot, n
     pusch_pdu->rb_start = sched_pusch->rbStart;
     pusch_pdu->rb_size = sched_pusch->rbSize;
     // by Luhan
-    LOG_W(MAC,
-          "-----------pusch_pdu->rnti is %d, pusch_pdu->bwp_size is %d, pusch_pdu->rb_size is %d \n",
-          pusch_pdu->rnti,
-          pusch_pdu->bwp_size,
-          pusch_pdu->rb_size);
+    // LOG_W(MAC,
+    //       "-----------pusch_pdu->rnti is %d, pusch_pdu->bwp_size is %d, pusch_pdu->rb_size is %d \n",
+    //       pusch_pdu->rnti,
+    //       pusch_pdu->bwp_size,
+    //       pusch_pdu->rb_size);
     pusch_pdu->vrb_to_prb_mapping = 0;
     if (current_BWP->pusch_Config==NULL || current_BWP->pusch_Config->frequencyHopping==NULL)
       pusch_pdu->frequency_hopping = 0;

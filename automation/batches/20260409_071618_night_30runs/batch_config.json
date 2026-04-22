@@ -1,0 +1,19 @@
+{
+  "artifacts_root": "batches",
+  "base_config": "/home/bupt/wlh/ran/automation/config.example.json",
+  "batch_name": "night_30runs",
+  "continue_on_failure": true,
+  "scenarios": [
+    {
+      "name": "cache_light",
+      "overrides": {
+        "stress": {
+          "command": "taskset -c 8-11 stress-ng --cache 8 --cache-level 3 --timeout 6000s --metrics-brief",
+          "enabled": true,
+          "target": "local"
+        }
+      },
+      "repeat": 1
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "artifacts_root": "automation/runs",
+  "gnb": {
+    "workdir": "/home/bupt/wlh/ran/cmake_targets",
+    "start_command": "sudo -n /usr/bin/bash /home/bupt/wlh/ran/cmake_targets/run_gNB.sh",
+    "stop_command": "sudo -n /usr/bin/pkill -INT -f /home/bupt/wlh/ran/cmake_targets/ran_build/build/nr-softmodem",
+    "log_source_path": "/dev/shm/openair.log",
+    "startup_wait_sec": 8,
+    "max_retries": 2,
+    "retry_delay_sec": 10
+  },
+  "ue": {
+    "ssh_target": "ubuntu@10.156.64.39",
+    "workdir": "/home/ubuntu/hcs/openairinterface5g_2025_w10",
+    "start_command": "sudo -n /usr/bin/bash  /home/ubuntu/hcs/openairinterface5g_2025_w10/run_nrUE.sh",
+    "stop_command": "sudo -n /usr/bin/pkill -INT -f /home/ubuntu/hcs/openairinterface5g_2025_w10/cmake_targets/ran_build/build/nr-uesoftmodem",
+    "log_source_path": " ",
+    "start_timeout_sec": 20,
+    "continue_on_start_timeout": true,
+    "tun_interface": "oaitun_ue1",
+    "ready_timeout_sec": 20,
+    "poll_interval_sec": 5,
+    "remote_log_path": "/tmp/oai-automation/ue_start.log"
+  },
+  "iperf_server": {
+    "mode": "external",
+    "host_for_client": "10.129.245.138",
+    "port": 5201
+},
+  "iperf_client": {
+    "duration_sec": 210,
+    "protocol": "udp",
+    "reverse": false,
+    "bitrate": "100M",
+    "bind_to_tunnel_ip": true,
+    "extra_args": [
+      "--json"
+    ],
+    "remote_log_path": "/tmp/oai-automation/iperf_client.log"
+  },
+  "stress": {
+    "enabled": false,
+    "target": "local",
+    "command": "taskset -c 0-7 stress-ng --cache 10 --cache-level 3 --timeout 6000s --metrics-brief",
+    "remote_log_path": "/tmp/oai-automation/stress.log"
+  }
+}

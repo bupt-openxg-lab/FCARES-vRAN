@@ -3369,7 +3369,80 @@ static bool fill_mac_sdu(NR_UE_MAC_INST_t *mac,
                                          (char *)mac_ce_p->cur_ptr + header_sz,
                                          0,
                                          0);
+  if (sdu_length > 0 && lcid > 2) { // 过滤掉空包和 SRB0/1/2 (只看业务数据 DRB)
+      
+      // 1. 获取指向 RLC PDU 头部的指针
+      // mac_ce_p->cur_ptr 指向 MAC 子头起点，header_sz 是 MAC 子头长度
+      uint8_t *rlc_pdu_ptr = (uint8_t *)mac_ce_p->cur_ptr + header_sz;
+                              
+      // 2. 解析公共部分 (Byte 0 的高4位)
+      // D/C (Bit 7), P (Bit 6), SI (Bit 5-4)
+      // SI 高位为 1 代表 !is_first
+      bool is_first_segment = !((rlc_pdu_ptr[0] & 0x20) >> 5); 
+      uint8_t si_val = (rlc_pdu_ptr[0] & 0x30) >> 4; // 提取 SI 原始值方便打印
 
+      uint32_t rlc_sn = 0;
+      uint32_t rlc_so = 0;
+      int rlc_header_len = 0;
+
+      // 3. 根据 SN 长度配置解析 (必须知道当前 LCID 的配置)
+      // 在 OAI 中，可以通过 DRB 配置查到，或者对于调试，你可以根据抓包情况写死
+      int sn_field_length = 18; // DRB应该为18
+
+      if (sn_field_length == 12) {
+          // --- 12-bit SN 模式 ---
+          // Byte 0: D P S S [N N N N]  <-- 低4位是 SN 高位
+          // Byte 1: [N N N N N N N N]  <-- 8位全是 SN
+          
+          uint8_t sn_high_4 = rlc_pdu_ptr[0] & 0x0F; // 掩码 0000 1111
+          uint8_t sn_low_8  = rlc_pdu_ptr[1];
+          
+          rlc_sn = (sn_high_4 << 8) | sn_low_8;
+          rlc_header_len = 2; // 基础头长 2 字节
+
+      } else if (sn_field_length == 18) {
+          // --- 18-bit SN 模式 ---
+          // Byte 0: D P S S R R [N N]  <-- 低2位是 SN 高位
+          // Byte 1: [N N N N N N N N]  <-- 中间 8 位
+          // Byte 2: [N N N N N N N N]  <-- 低 8 位
+          
+          uint8_t sn_high_2 = rlc_pdu_ptr[0] & 0x03; // 掩码 0000 0011 (跳过 R 位)
+          uint8_t sn_mid_8  = rlc_pdu_ptr[1];
+          uint8_t sn_low_8  = rlc_pdu_ptr[2];
+
+          rlc_sn = (sn_high_2 << 16) | (sn_mid_8 << 8) | sn_low_8;
+          rlc_header_len = 3; // 基础头长 3 字节
+      }
+
+      // 4. 解析 SO (Segment Offset)
+      // 如果不是第一段，后面紧跟 16 bit 的 SO
+      if (!is_first_segment) {
+          // SO 在 SN 之后，占 2 个字节
+          uint8_t so_high = rlc_pdu_ptr[rlc_header_len];
+          uint8_t so_low  = rlc_pdu_ptr[rlc_header_len + 1];
+          rlc_so = (so_high << 8) | so_low;
+      }
+
+      // 2. 提取指纹 (RLC SN 的原始字节)
+      // 我们不需要完全解码 SN，只需要记录前 2-3 个字节的原始 Hex，
+      // 只要两端这几个字节一样，那就是同一个包。
+      uint8_t h1 = rlc_pdu_ptr[0];
+      uint8_t h2 = (sdu_length > 1) ? rlc_pdu_ptr[1] : 0;
+      uint8_t h3 = (sdu_length > 2) ? rlc_pdu_ptr[2] : 0;
+                                    
+      // 3. LatSeq 记录 (或者用 LOG_I)
+      // 格式: UE_TX | RNTI | Frame.Slot | LCID | Len | Fingerprint(Hex)
+      LOG_W(NR_MAC, "[Uplink-ue] %d.%d : mac.tx  rnti:%x, lcid:%d, len:%d, rlc_sn = %u,rlc_so = %u, hex:%02x%02x%02x\n",
+            frame,
+            slot,
+            mac->ue_id, // 或者用 rnti
+            lcid,
+            sdu_length,
+            rlc_sn,
+            rlc_so,
+            h1, h2, h3);
+            
+  }
   AssertFatal(bytes_requested >= sdu_length,
               "LCID = 0x%02x RLC has segmented %d bytes but MAC has max %li remaining bytes\n",
               lcid,

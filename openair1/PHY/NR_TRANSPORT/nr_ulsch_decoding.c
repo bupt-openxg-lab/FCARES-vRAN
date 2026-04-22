@@ -177,21 +177,7 @@ int nr_ulsch_decoding(PHY_VARS_gNB *phy_vars_gNB,
     }
 
     uint8_t harq_pid = ulsch->harq_pid;
-    LOG_W(PHY,
-          "ULSCH Decoding[pusch_id id = %d], harq_pid %d rnti %x TBS %d G %d mcs %d Nl %d nb_rb %d, Qm %d, Coderate %f RV %d round %d new RX %d\n",
-          pusch_id,
-          harq_pid,
-          ulsch->rnti,
-          TB_parameters->A,
-          TB_parameters->G,
-          TB_parameters->mcs,
-          TB_parameters->nb_layers,
-          TB_parameters->nb_rb,
-          TB_parameters->Qm,
-          pusch_pdu->target_code_rate / 10240.0f,
-          pusch_pdu->pusch_data.rv_index,
-          harq_process->round,
-          harq_process->harq_to_be_cleared);
+    
 
     // [hna] Perform nr_segmenation with input and output set to NULL to calculate only (C, K, Z, F)
     nr_segmentation(NULL,
@@ -206,6 +192,23 @@ int nr_ulsch_decoding(PHY_VARS_gNB *phy_vars_gNB,
     harq_process->K = TB_parameters->K;
     harq_process->Z = TB_parameters->Z;
     harq_process->F = TB_parameters->F;
+
+    LOG_W(PHY,
+      "ULSCH Decoding[%d CodeBlocks ], harq_pid %d rnti %x TBS %d G %d mcs %d Nl %d nb_rb %d, Qm %d, Coderate %f RV %d round %d new RX %d\n",
+      harq_process->C,
+      harq_pid,
+      ulsch->rnti,
+      TB_parameters->A,
+      TB_parameters->G,
+      TB_parameters->mcs,
+      TB_parameters->nb_layers,
+      TB_parameters->nb_rb,
+      TB_parameters->Qm,
+      pusch_pdu->target_code_rate / 10240.0f,
+      pusch_pdu->pusch_data.rv_index,
+      harq_process->round,
+      harq_process->harq_to_be_cleared);
+
 
     uint16_t a_segments = MAX_NUM_NR_ULSCH_SEGMENTS_PER_LAYER * TB_parameters->nb_layers; // number of segments to be allocated
     if (TB_parameters->C > a_segments) {

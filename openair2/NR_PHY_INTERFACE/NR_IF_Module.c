@@ -204,10 +204,12 @@ static void handle_nr_ulsch(NR_UL_IND_t *UL_info)
                 crc->timing_advance,
                 crc->ul_cqi,
                 crc->rssi);
+        LOG_W(PHY,"ul_cqi = %d,rssi = %d\n",crc->ul_cqi,crc->rssi);
       handle_nr_ul_harq(UL_info->CC_id, UL_info->module_id, UL_info->frame, UL_info->slot, crc);
     }
     UL_info->rx_ind.number_of_pdus = 0;
     UL_info->crc_ind.number_crcs = 0;
+    LOG_W(PHY,"handle \n");
   }
 }
 

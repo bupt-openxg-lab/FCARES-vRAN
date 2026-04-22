@@ -1,0 +1,38 @@
+{
+  "bringup_attempt": 3,
+  "bringup_failures": [
+    {
+      "attempt": 1,
+      "error": "gNB exited before UE tunnel became ready"
+    },
+    {
+      "attempt": 2,
+      "error": "Timed out waiting for oaitun_ue1 on ubuntu@10.156.64.39"
+    },
+    {
+      "attempt": 3,
+      "error": "Timed out waiting for oaitun_ue1 on ubuntu@10.156.64.39"
+    }
+  ],
+  "config_path": "/home/bupt/wlh/ran/automation/config.example.json",
+  "error": "Timed out waiting for oaitun_ue1 on ubuntu@10.156.64.39",
+  "finished_at": "2026-04-12T22:09:55.391204",
+  "gnb_log": "/home/bupt/wlh/ran/automation/automation/batches/20260412_211719_night_30runs/runs/20260412_220654_cache_light_03/gnb_attempt03.log",
+  "gnb_start_log": "/home/bupt/wlh/ran/automation/automation/batches/20260412_211719_night_30runs/runs/20260412_220654_cache_light_03/gnb_start_attempt03.log",
+  "metadata": {
+    "batch_index": 23,
+    "batch_name": "night_30runs",
+    "persistent_stress": true,
+    "scenario_iteration": 3,
+    "scenario_name": "cache_light"
+  },
+  "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260412_211719_night_30runs/runs/20260412_220654_cache_light_03",
+  "run_label": "cache_light_03",
+  "started_at": "2026-04-12T22:06:54.280205",
+  "status": "failed",
+  "ue_log": "/home/bupt/wlh/ran/automation/automation/batches/20260412_211719_night_30runs/runs/20260412_220654_cache_light_03/ue_attempt03.log",
+  "ue_remote_log": "/tmp/oai-automation/ue_start_attempt03.log",
+  "ue_remote_pid": 299576,
+  "ue_start_log": "/home/bupt/wlh/ran/automation/automation/batches/20260412_211719_night_30runs/runs/20260412_220654_cache_light_03/ue_start_attempt03.log",
+  "ue_start_warning": "Timed out while starting remote background process on ubuntu@10.156.64.39 after 20s, and could not recover pid from /tmp/oai-automation/ue_start_attempt02.log.pid. The remote process may have started but the launcher did not detach cleanly."
+}

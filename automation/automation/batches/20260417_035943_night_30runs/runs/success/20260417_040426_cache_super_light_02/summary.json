@@ -1,0 +1,42 @@
+{
+  "bringup_attempt": 3,
+  "bringup_failures": [
+    {
+      "attempt": 1,
+      "error": "Timed out waiting for oaitun_ue1 on ubuntu@10.156.64.39"
+    },
+    {
+      "attempt": 2,
+      "error": "Timed out waiting for oaitun_ue1 on ubuntu@10.156.64.39"
+    }
+  ],
+  "config_path": "/home/bupt/wlh/ran/automation/config.example.json",
+  "finished_at": "2026-04-17T04:11:05.886596",
+  "gnb_attempts_used": 3,
+  "gnb_log": "/home/bupt/wlh/ran/automation/automation/batches/20260417_035943_night_30runs/runs/20260417_040426_cache_super_light_02/gnb_attempt03.log",
+  "gnb_start_log": "/home/bupt/wlh/ran/automation/automation/batches/20260417_035943_night_30runs/runs/20260417_040426_cache_super_light_02/gnb_start_attempt03.log",
+  "iperf": {
+    "bits_per_second": 99999536.30488555,
+    "mbps": 100.0,
+    "parser": "json"
+  },
+  "iperf_client_remote_log": "/tmp/oai-automation/iperf_client.log",
+  "iperf_client_returncode": 0,
+  "metadata": {
+    "batch_index": 2,
+    "batch_name": "night_30runs",
+    "persistent_stress": true,
+    "scenario_iteration": 2,
+    "scenario_name": "cache_super_light"
+  },
+  "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260417_035943_night_30runs/runs/20260417_040426_cache_super_light_02",
+  "run_label": "cache_super_light_02",
+  "started_at": "2026-04-17T04:04:26.657311",
+  "status": "ok",
+  "ue_ip": "192.169.1.54",
+  "ue_log": "/home/bupt/wlh/ran/automation/automation/batches/20260417_035943_night_30runs/runs/20260417_040426_cache_super_light_02/ue_attempt03.log",
+  "ue_remote_log": "/tmp/oai-automation/ue_start_attempt03.log",
+  "ue_remote_pid": null,
+  "ue_start_log": "/home/bupt/wlh/ran/automation/automation/batches/20260417_035943_night_30runs/runs/20260417_040426_cache_super_light_02/ue_start_attempt03.log",
+  "ue_start_warning": "Timed out while starting remote background process on ubuntu@10.156.64.39 after 20s, and could not recover pid from /tmp/oai-automation/ue_start_attempt03.log.pid. The remote process may have started but the launcher did not detach cleanly."
+}

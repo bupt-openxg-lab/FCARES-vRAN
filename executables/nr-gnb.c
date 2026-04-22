@@ -129,12 +129,12 @@ static void tx_func(processingData_L1tx_t *info)
   res->key = slot_rx;
   pushNotifiedFIFO(&gNB->resp_L1, res);
   stop_meas(&txfunc_time);
-  LOG_W(NR_PHY,"[tx_func] %d.%d: txfunc 1 costs %.2f us\n",frame_tx, slot_tx, get_time_meas_us(&txfunc_time));
+  // LOG_W(NR_PHY,"[tx_func] %d.%d: txfunc 1 costs %.2f us\n",frame_tx, slot_tx, get_time_meas_us(&txfunc_time));
   int tx_slot_type = nr_slot_select(cfg, frame_tx, slot_tx);
   if (tx_slot_type == NR_DOWNLINK_SLOT || tx_slot_type == NR_MIXED_SLOT || get_softmodem_params()->continuous_tx) {
     start_meas(&info->gNB->phy_proc_tx);
     phy_procedures_gNB_TX(info, frame_tx, slot_tx, 1);
-    LOG_W(NR_PHY,"[tx_func] %d.%d: txfunc 2 costs %.2f us\n",frame_tx, slot_tx, get_time_meas_us(&txfunc_time));
+    // LOG_W(NR_PHY,"[tx_func] %d.%d: txfunc 2 costs %.2f us\n",frame_tx, slot_tx, get_time_meas_us(&txfunc_time));
     PHY_VARS_gNB *gNB = info->gNB;
     processingData_RU_t syncMsgRU;
     syncMsgRU.frame_tx = frame_tx;
@@ -146,7 +146,7 @@ static void tx_func(processingData_L1tx_t *info)
     stop_meas(&info->gNB->phy_proc_tx);
   }
   stop_meas(&txfunc_time);
-  LOG_W(NR_PHY,"[tx_func] %d.%d: txfunc 3 costs %.2f us\n",frame_tx, slot_tx, get_time_meas_us(&txfunc_time));
+  // LOG_W(NR_PHY,"[tx_func] %d.%d: txfunc 3 costs %.2f us\n",frame_tx, slot_tx, get_time_meas_us(&txfunc_time));
   if (NFAPI_MODE == NFAPI_MONOLITHIC) {
     /* this thread is done with the sched_info, decrease the reference counter.
      * This only applies for monolithic; in the PNF, the memory is allocated in
@@ -155,7 +155,7 @@ static void tx_func(processingData_L1tx_t *info)
     deref_sched_response(info->sched_response_id);
   }
   stop_meas(&txfunc_time);
-  LOG_W(NR_PHY,"[tx_func] %d.%d: txfunc ALL costs %.2f us\n",frame_tx, slot_tx, get_time_meas_us(&txfunc_time));
+  // LOG_W(NR_PHY,"[tx_func] %d.%d: txfunc ALL costs %.2f us\n",frame_tx, slot_tx, get_time_meas_us(&txfunc_time));
 }
 
 void *L1_rx_thread(void *arg) 
@@ -192,7 +192,7 @@ static void rx_func(processingData_L1_t *info)
   static time_stats_t last_timestamp = {0,};
   start_meas(&rxfunc_time);
   stop_meas(&last_timestamp);
-  LOG_W(NR_PHY,"[rx_func] Time since last call: %.2f us\n", get_time_meas_us(&last_timestamp));
+  // LOG_W(NR_PHY,"[rx_func] Time since last call: %.2f us\n", get_time_meas_us(&last_timestamp));
   memcpy(&last_timestamp, &rxfunc_time, sizeof(time_stats_t));
   PHY_VARS_gNB *gNB = info->gNB;
   int frame_rx = info->frame_rx;
@@ -210,7 +210,7 @@ static void rx_func(processingData_L1_t *info)
     // Do PRACH RU processing
     UL_INFO.rach_ind.pdu_list = UL_INFO.prach_pdu_indication_list;
     L1_nr_prach_procedures(gNB, frame_rx, slot_rx, &UL_INFO.rach_ind);
-
+    start_meas(&phase_comp_time);
     //WA: comment rotation in tx/rx
     if (gNB->phase_comp) {
       //apply the rx signal rotation here
@@ -228,14 +228,16 @@ static void rx_func(processingData_L1_t *info)
         }
       }
     }
-    start_meas(&phase_comp_time);
-    phy_procedures_gNB_uespec_RX(gNB, frame_rx, slot_rx, &UL_INFO);
     stop_meas(&phase_comp_time);
+    LOG_W(NR_PHY,"[rx_func] %d.%d: apply_nr_rotation_RX costs %.2f us\n",frame_rx, slot_rx, get_time_meas_us(&phase_comp_time));
+    
+    phy_procedures_gNB_uespec_RX(gNB, frame_rx, slot_rx, &UL_INFO);
+    // stop_meas(&phase_comp_time);
     // Call the scheduler
     start_meas(&gNB->ul_indication_stats);
     gNB->if_inst->NR_UL_indication(&UL_INFO);
     stop_meas(&gNB->ul_indication_stats);
-    LOG_W(NR_PHY,"[rx_func] %d.%d: phy_procedures_gNB_uespec_RX costs %.2f us\n",frame_rx, slot_rx, get_time_meas_us(&phase_comp_time));
+    LOG_W(NR_PHY,"[rx_func] %d.%d: phy_procedures_gNB_uespec_RX costs %.2f us\n",frame_rx, slot_rx, get_time_meas_us(&gNB->ul_indication_stats));
     notifiedFIFO_elt_t *res = newNotifiedFIFO_elt(sizeof(processingData_L1_t), 0, &gNB->L1_rx_out, NULL);
     processingData_L1_t *syncMsg = NotifiedFifoData(res);
     syncMsg->gNB = gNB;
@@ -353,7 +355,7 @@ void init_gNB_Tpool(int inst)
   // create the RX thread responsible for RX processing start event (resp_L1 msg queue), then launch rx_func()
   threadCreate(&gNB->L1_rx_thread, L1_rx_thread, (void *)gNB, "L1_rx_thread", gNB->L1_rx_thread_core, OAI_PRIORITY_RT_MAX);
   // create the TX thread responsible for TX processing start event (L1_tx_out msg queue), then launch tx_func()
-  threadCreate(&gNB->L1_tx_thread, L1_tx_thread, (void *)gNB, "L1_tx_thread", gNB->L1_tx_thread_core, OAI_PRIORITY_RT_MAX);
+  threadCreate(&gNB->L1_tx_thread, L1_tx_thread, (void *)gNB, "L1_tx_thread",gNB->L1_tx_thread_core, OAI_PRIORITY_RT_MAX);
 
   notifiedFIFO_elt_t *msgL1Tx = newNotifiedFIFO_elt(sizeof(processingData_L1tx_t), 0, &gNB->L1_tx_out, NULL);
   processingData_L1tx_t *msgDataTx = (processingData_L1tx_t *)NotifiedFifoData(msgL1Tx);

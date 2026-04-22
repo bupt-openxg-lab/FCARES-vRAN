@@ -1,0 +1,33 @@
+{
+  "bringup_attempt": 1,
+  "config_path": "/home/bupt/wlh/ran/automation/config.example.json",
+  "finished_at": "2026-04-09T12:02:33.580933",
+  "gnb_attempts_used": 1,
+  "gnb_log": "/home/bupt/wlh/ran/automation/automation/batches/20260409_114655_night_30runs/runs/20260409_120042_cache_medium_07/gnb_attempt01.log",
+  "gnb_start_log": "/home/bupt/wlh/ran/automation/automation/batches/20260409_114655_night_30runs/runs/20260409_120042_cache_medium_07/gnb_start_attempt01.log",
+  "iperf": {
+    "bits_per_second": 8542522.95094203,
+    "mbps": 8.54,
+    "parser": "json"
+  },
+  "iperf_client_remote_log": "/tmp/oai-automation/iperf_client.log",
+  "iperf_client_returncode": 0,
+  "metadata": {
+    "batch_index": 7,
+    "batch_name": "night_30runs",
+    "scenario_iteration": 7,
+    "scenario_name": "cache_medium"
+  },
+  "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260409_114655_night_30runs/runs/20260409_120042_cache_medium_07",
+  "run_label": "cache_medium_07",
+  "started_at": "2026-04-09T12:00:42.690473",
+  "status": "ok",
+  "stress_command": "taskset -c 8-15 stress-ng --cache 16 --cache-level 3 --timeout 6000s --metrics-brief",
+  "stress_log": "/home/bupt/wlh/ran/automation/automation/batches/20260409_114655_night_30runs/runs/20260409_120042_cache_medium_07/stress.log",
+  "ue_ip": "192.169.0.9",
+  "ue_log": "/home/bupt/wlh/ran/automation/automation/batches/20260409_114655_night_30runs/runs/20260409_120042_cache_medium_07/ue_attempt01.log",
+  "ue_remote_log": "/tmp/oai-automation/ue_start_attempt01.log",
+  "ue_remote_pid": null,
+  "ue_start_log": "/home/bupt/wlh/ran/automation/automation/batches/20260409_114655_night_30runs/runs/20260409_120042_cache_medium_07/ue_start_attempt01.log",
+  "ue_start_warning": "Timed out while starting remote background process on ubuntu@10.156.64.39 after 20s, and could not recover pid from /tmp/oai-automation/ue_start_attempt01.log.pid. The remote process may have started but the launcher did not detach cleanly."
+}

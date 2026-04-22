@@ -1,0 +1,36 @@
+#include <linux/sched.h>
+
+
+/* 记录唤醒时间 */
+tracepoint:sched:sched_wakeup,
+tracepoint:sched:sched_wakeup_new
+{
+    @qtime[args->pid] = nsecs;
+}
+
+/* 任务切入 CPU，计算延迟 */
+tracepoint:sched:sched_switch
+{
+    if (args->prev_pid != 0 && args->prev_state == 0) {
+        @qtime[args->prev_pid] = nsecs;
+    }
+
+    /* 2. 如果下一个任务是 IDLE (0)，直接跳过，不计算延迟 */
+    if (args->next_pid == 0) { return; }
+
+    $start = @qtime[args->next_pid];
+    if ($start != 0) {
+        $lat = (nsecs - $start) / 1000; /* 微秒 */
+        
+        /* 这里可以过滤你关心的进程名 */
+        if (comm == "ru_thread" || comm == "L1_tx_thread" || comm == "Tpool5_-1" || comm == "Tpool4_-1" || comm == "Tpool3_-1" || comm == "Tpool2_-1" ) {
+            //printf("Task: %s, Latency: %d us\n", comm, $lat);
+            @latency_hist[comm] = hist($lat);
+        } 
+        else {
+             /* 统计全局延迟分布 */
+            @all_latency = hist($lat);
+        }
+        delete(@qtime[args->next_pid]);
+    }
+}

@@ -1,0 +1,29 @@
+{
+  "bringup_attempt": 1,
+  "config_path": "/home/bupt/wlh/ran/automation/config.example.json",
+  "error": "iperf3 client failed with exit code 124",
+  "finished_at": "2026-04-09T21:08:38.326070",
+  "gnb_attempts_used": 1,
+  "gnb_log": "/home/bupt/wlh/ran/automation/automation/batches/20260409_210157_night_30runs/runs/20260409_210614_cache_super_light_03/gnb_attempt01.log",
+  "gnb_start_log": "/home/bupt/wlh/ran/automation/automation/batches/20260409_210157_night_30runs/runs/20260409_210614_cache_super_light_03/gnb_start_attempt01.log",
+  "iperf_client_remote_log": "/tmp/oai-automation/iperf_client.log",
+  "iperf_client_returncode": 124,
+  "metadata": {
+    "batch_index": 3,
+    "batch_name": "night_30runs",
+    "scenario_iteration": 3,
+    "scenario_name": "cache_super_light"
+  },
+  "run_dir": "/home/bupt/wlh/ran/automation/automation/batches/20260409_210157_night_30runs/runs/20260409_210614_cache_super_light_03",
+  "run_label": "cache_super_light_03",
+  "started_at": "2026-04-09T21:06:14.825775",
+  "status": "failed",
+  "stress_command": "taskset -c 8 stress-ng --cache 8 --cache-level 3 --timeout 6000s --metrics-brief",
+  "stress_log": "/home/bupt/wlh/ran/automation/automation/batches/20260409_210157_night_30runs/runs/20260409_210614_cache_super_light_03/stress.log",
+  "ue_ip": "192.169.0.5",
+  "ue_log": "/home/bupt/wlh/ran/automation/automation/batches/20260409_210157_night_30runs/runs/20260409_210614_cache_super_light_03/ue_attempt01.log",
+  "ue_remote_log": "/tmp/oai-automation/ue_start_attempt01.log",
+  "ue_remote_pid": null,
+  "ue_start_log": "/home/bupt/wlh/ran/automation/automation/batches/20260409_210157_night_30runs/runs/20260409_210614_cache_super_light_03/ue_start_attempt01.log",
+  "ue_start_warning": "Timed out while starting remote background process on ubuntu@10.156.64.39 after 20s, and could not recover pid from /tmp/oai-automation/ue_start_attempt01.log.pid. The remote process may have started but the launcher did not detach cleanly."
+}
