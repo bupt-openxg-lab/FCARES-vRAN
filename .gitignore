@@ -21,8 +21,35 @@ GRTAGS
 GTAGS
 tags
 
+data
+
 # others
 nfapi_nr_interface_scf
 *.log
 *.out
 CMakeUserPresets.json
+
+
+
+# 性能测试数据
+*.data
+*.data.old
+*.txt
+*.csv
+*.png
+*.log*
+
+
+# 临时执行脚本与配置文件
+*.conf
+run_gNB.sh
+run_nrUE.sh
+
+# 编译产物与二进制
+common/utils/ldpc_pmu_bench
+freq_probe_core5
+
+# 文件夹
+venv/
+nginx/
+osjitter/
