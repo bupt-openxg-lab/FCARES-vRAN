@@ -119,6 +119,8 @@ typedef struct nrLDPC_decoding_parameters_s {
   time_stats_t *p_ts_deinterleave;
   time_stats_t *p_ts_rate_unmatch;
   time_stats_t *p_ts_ldpc_decode;
+
+  time_stats_t decoding_time; // per-segment total decode time (deinterleave + rate_unmatch + LDPC)
 } nrLDPC_decoding_parameters_t;
 
 
@@ -126,9 +128,9 @@ typedef struct nrLDPC_decoding_parameters_s {
 
 static void nr_process_decode_segment(void *arg)
 {
-  time_stats_t decoding_time = {0};
-  start_meas(&decoding_time);
   nrLDPC_decoding_parameters_t *rdata = (nrLDPC_decoding_parameters_t *)arg;
+  rdata->decoding_time = (time_stats_t){0};
+  start_meas(&rdata->decoding_time);
   t_nrLDPC_dec_params *p_decoderParms = &rdata->decoderParms;
   const int K = rdata->K;
   const int Kprime = K - rdata->F;
@@ -222,15 +224,15 @@ static void nr_process_decode_segment(void *arg)
   //////////////////////////////////////////////////////////////////////////////////////////
 
   ////////////////////////////////// pl =====> llrProcBuf //////////////////////////////////
-  stop_meas(&decoding_time);
-  LOG_W(PHY,"id = %hhd, decoding preparation costs time %.2f us\n",id, get_time_meas_us(&decoding_time));
+  stop_meas(&rdata->decoding_time);
+  LOG_W(PHY,"id = %hhd, decoding preparation costs time %.2f us\n",id, get_time_meas_us(&rdata->decoding_time));
 
   int decodeIterations =
       LDPCdecoder(p_decoderParms, 0, 0, 0, l, llrProcBuf, p_procTime, rdata->abort_decode,id);
   
   LOG_W(PHY,"id = %hhd, decode iteration = %d,Z = %d , BG = %d\n",id, decodeIterations,rdata->Z,rdata->decoderParms.BG);
-  stop_meas(&decoding_time);
-  LOG_W(PHY,"id = %hhd, decoding one CodeBlock costs time %.2f us\n",id, get_time_meas_us(&decoding_time));
+  stop_meas(&rdata->decoding_time);
+  LOG_W(PHY,"id = %hhd, decoding one CodeBlock costs time %.2f us\n",id, get_time_meas_us(&rdata->decoding_time));
   if (decodeIterations <= p_decoderParms->numMaxIter) {
     memcpy(rdata->c, llrProcBuf, K >> 3);
     *rdata->decodeSuccess = true;
@@ -323,6 +325,18 @@ int32_t nrLDPC_coding_decoder(nrLDPC_slot_decoding_parameters_t *nrLDPC_slot_dec
 
   // Execute thread pool tasks
   join_task_ans(t_info.ans);
+
+  // Aggregate total decode time across all segments and log
+  double total_decode_time_us = 0.0;
+  for (int i = 0; i < nbSegments; i++) {
+    total_decode_time_us += get_time_meas_us(&arr[i].decoding_time);
+  }
+  LOG_W(PHY, "[Actual Decode] %d.%d: total_decode_time=%.2f us, C=%d, timeout=%s\n",
+        nrLDPC_slot_decoding_parameters->frame,
+        nrLDPC_slot_decoding_parameters->slot,
+        total_decode_time_us,
+        nbSegments,
+        total_decode_time_us > 700.0 ? "YES" : "NO");
 
   for (int pusch_id = 0; pusch_id < nrLDPC_slot_decoding_parameters->nb_TBs; pusch_id++) {
     nrLDPC_TB_decoding_parameters_t *nrLDPC_TB_decoding_parameters = &nrLDPC_slot_decoding_parameters->TBs[pusch_id];
