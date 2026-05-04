@@ -42,6 +42,11 @@
 
 #include "LAYER2/NR_MAC_gNB/leaf_model_exported.h"
 #include "LAYER2/NR_MAC_gNB/leaf_model_wrapper.h"
+
+// 共享内存：读取 co_workload 施加的系统压力状态
+#include "LAYER2/NR_MAC_gNB/co_workload_shared.h"
+static shm_state_t *co_workload_shm = NULL;
+static int co_workload_init_done = 0;
 //#define SRS_IND_DEBUG
 
 
@@ -1819,6 +1824,24 @@ static void pf_ul(module_id_t module_id,
   NR_ServingCellConfigCommon_t *scc = nrmac->common_channels[CC_id].ServingCellConfigCommon;
   int slots_per_frame = nrmac->frame_structure.numb_slots_frame;
   const int min_rb = nrmac->min_grant_prb;
+
+  // 读取 co_workload 共享内存中的系统压力状态
+  if (!co_workload_init_done) {
+    co_workload_shm = shm_init(0); // 只读打开，controller 未启动时返回 NULL
+    co_workload_init_done = 1;
+    if (co_workload_shm)
+      LOG_W(NR_MAC, "[co_workload] shared memory attached\n");
+    else
+      LOG_W(NR_MAC, "[co_workload] controller not running, skipping\n");
+  }
+  if (co_workload_shm) {
+    uint_fast32_t level = atomic_load(&co_workload_shm->level);
+    uint_fast32_t type  = atomic_load(&co_workload_shm->type);
+    const char *level_str = (level <= 2) ? INTERF_LEVEL_NAMES[level] : "???";
+    const char *type_str  = (type  <= 2) ? INTERF_TYPE_NAMES[type]   : "???";
+    LOG_W(NR_MAC, "[co_workload] %d.%d: stress_level=%s, stress_type=%s\n",
+          frame, slot, level_str, type_str);
+  }
   // min_rb = 5
   // LOG_W(PHY,"min_rb = %d",min_rb);
   // UEs that could be scheduled
@@ -1981,11 +2004,11 @@ static void pf_ul(module_id_t module_id,
         
         nrmac->ul_mcs_scan_rb_per_mcs[target_mcs] = nrmac->ul_mcs_scan_current_rb;
         
-        LOG_W(NR_MAC,"%d.%d UL MCS SWEEP: mcs=%d, rb=%d\n",
-              frame, slot, target_mcs, nrmac->ul_mcs_scan_current_rb);
       } else {
         target_mcs = nrmac->ul_mcs_scan_ref;
       }
+      LOG_W(NR_MAC,"%d.%d UL MCS SWEEP: mcs=%d, rb=%d\n",
+          frame, slot, target_mcs, nrmac->ul_mcs_scan_current_rb);
       sched_pusch->mcs = min(target_mcs, max_mcs);
       sched_ctrl->ul_bler_stats.mcs = sched_pusch->mcs;
     } else if (bo->harq_round_max == 1) {
