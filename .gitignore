@@ -49,6 +49,7 @@ run_nrUE.sh
 # 编译产物与二进制
 common/utils/ldpc_pmu_bench
 freq_probe_core5
+co_workload/controller
 
 # 文件夹
 venv/
