@@ -1,0 +1,4 @@
+interface:
+  display_name: "RAN Project"
+  short_description: "Project workflow for C algorithms, Python analysis, and papers"
+  default_prompt: "Use the ran-project skill for this project."
