@@ -198,9 +198,16 @@ static void rx_func(processingData_L1_t *info)
   int frame_rx = info->frame_rx;
   int slot_rx = info->slot_rx;
   nfapi_nr_config_request_scf_t *cfg = &gNB->gNB_config;
+  time_stats_t slot_select_time = {0};
+  time_stats_t prach_time = {0};
+  time_stats_t phy_uespec_rx_time = {0};
+  time_stats_t fifo_notify_time = {0};
 
   // RX processing
+  start_meas(&slot_select_time);
   int rx_slot_type = nr_slot_select(cfg, frame_rx, slot_rx);
+  stop_meas(&slot_select_time);
+  LOG_W(NR_PHY, "[rx_func] %d.%d: slot_select costs %.2f us\n", frame_rx, slot_rx, get_time_meas_us(&slot_select_time));
   if (rx_slot_type == NR_UPLINK_SLOT || rx_slot_type == NR_MIXED_SLOT) {
 
     LOG_W(NR_PHY, "%d.%d NR_UPLINK_SLOT or NR_MIXED_SLOT\n", frame_rx, slot_rx);
@@ -209,7 +216,10 @@ static void rx_func(processingData_L1_t *info)
     NR_UL_IND_t UL_INFO = {.frame = frame_rx, .slot = slot_rx, .module_id = gNB->Mod_id, .CC_id = gNB->CC_id};
     // Do PRACH RU processing
     UL_INFO.rach_ind.pdu_list = UL_INFO.prach_pdu_indication_list;
+    start_meas(&prach_time);
     L1_nr_prach_procedures(gNB, frame_rx, slot_rx, &UL_INFO.rach_ind);
+    stop_meas(&prach_time);
+    LOG_W(NR_PHY, "[rx_func] %d.%d: prach_processing costs %.2f us\n", frame_rx, slot_rx, get_time_meas_us(&prach_time));
     start_meas(&phase_comp_time);
     //WA: comment rotation in tx/rx
     if (gNB->phase_comp) {
@@ -231,13 +241,17 @@ static void rx_func(processingData_L1_t *info)
     stop_meas(&phase_comp_time);
     LOG_W(NR_PHY,"[rx_func] %d.%d: apply_nr_rotation_RX costs %.2f us\n",frame_rx, slot_rx, get_time_meas_us(&phase_comp_time));
     
+    start_meas(&phy_uespec_rx_time);
     phy_procedures_gNB_uespec_RX(gNB, frame_rx, slot_rx, &UL_INFO);
+    stop_meas(&phy_uespec_rx_time);
+    LOG_W(NR_PHY, "[rx_func] %d.%d: phy_uespec_rx costs %.2f us\n", frame_rx, slot_rx, get_time_meas_us(&phy_uespec_rx_time));
     // stop_meas(&phase_comp_time);
     // Call the scheduler
     start_meas(&gNB->ul_indication_stats);
     gNB->if_inst->NR_UL_indication(&UL_INFO);
     stop_meas(&gNB->ul_indication_stats);
-    LOG_W(NR_PHY,"[rx_func] %d.%d: phy_procedures_gNB_uespec_RX costs %.2f us\n",frame_rx, slot_rx, get_time_meas_us(&gNB->ul_indication_stats));
+    LOG_W(NR_PHY,"[rx_func] %d.%d: ul_indication costs %.2f us\n",frame_rx, slot_rx, get_time_meas_us(&gNB->ul_indication_stats));
+    start_meas(&fifo_notify_time);
     notifiedFIFO_elt_t *res = newNotifiedFIFO_elt(sizeof(processingData_L1_t), 0, &gNB->L1_rx_out, NULL);
     processingData_L1_t *syncMsg = NotifiedFifoData(res);
     syncMsg->gNB = gNB;
@@ -246,6 +260,8 @@ static void rx_func(processingData_L1_t *info)
     res->key = slot_rx;
     LOG_D(NR_PHY, "Signaling completion for %d.%d (mod_slot %d) on L1_rx_out\n", frame_rx, slot_rx, slot_rx % RU_RX_SLOT_DEPTH);
     pushNotifiedFIFO(&gNB->L1_rx_out, res);
+    stop_meas(&fifo_notify_time);
+    LOG_W(NR_PHY, "[rx_func] %d.%d: l1_rx_out_notify costs %.2f us\n", frame_rx, slot_rx, get_time_meas_us(&fifo_notify_time));
   }
   stop_meas(&rxfunc_time);
   LOG_W(NR_PHY,"[rx_func] %d.%d: rxfunc costs %.2f us\n",frame_rx, slot_rx, get_time_meas_us(&rxfunc_time));

@@ -51,7 +51,9 @@ int nr_pusch_channel_estimation(PHY_VARS_gNB *gNB,
                                 unsigned short bwp_start_subcarrier,
                                 nfapi_nr_pusch_pdu_t *pusch_pdu,
                                 int *max_ch,
-                                uint32_t *nvar);
+                                uint32_t *nvar,
+                                uint64_t *frontend_task_cycles,
+                                uint64_t *frontend_task_count);
 
 void dump_nr_I0_stats(FILE *fd,PHY_VARS_gNB *gNB);
 

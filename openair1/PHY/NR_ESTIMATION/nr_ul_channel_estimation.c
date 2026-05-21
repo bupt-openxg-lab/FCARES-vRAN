@@ -65,6 +65,9 @@ __attribute__((always_inline)) inline c16_t c32x16cumulVectVectWithSteps(c16_t *
 
 static void nr_pusch_antenna_processing(void *arg)
 {
+  time_stats_t task_time = {0};
+  start_meas(&task_time);
+
   puschAntennaProc_t *rdata = (puschAntennaProc_t *)arg;
   unsigned char Ns = rdata->Ns;
   int nl = rdata->nl;
@@ -409,9 +412,19 @@ static void nr_pusch_antenna_processing(void *arg)
     *(rdata->noise_amp2) = noise_amp2;
     *(rdata->nest_count) = nest_count;
   }
+  stop_meas(&task_time);
+  if (rdata->frontend_task_cycles != NULL) {
+    __atomic_fetch_add(rdata->frontend_task_cycles, task_time.p_time, __ATOMIC_RELAXED);
+    __atomic_fetch_add(rdata->frontend_task_count, 1, __ATOMIC_RELAXED);
+  }
   completed_task_ans(rdata->ans);
 }
 
+static inline void add_pusch_frontend_work_cycles(uint64_t *frontend_task_cycles, const time_stats_t *work_time)
+{
+  if (frontend_task_cycles != NULL)
+    __atomic_fetch_add(frontend_task_cycles, work_time->p_time, __ATOMIC_RELAXED);
+}
 
 int nr_pusch_channel_estimation(PHY_VARS_gNB *gNB,
                                 unsigned char Ns,
@@ -423,8 +436,13 @@ int nr_pusch_channel_estimation(PHY_VARS_gNB *gNB,
                                 unsigned short bwp_start_subcarrier,
                                 nfapi_nr_pusch_pdu_t *pusch_pdu,
                                 int *max_ch,
-                                uint32_t *nvar)
+                                uint32_t *nvar,
+                                uint64_t *frontend_task_cycles,
+                                uint64_t *frontend_task_count)
 {
+  time_stats_t non_task_time = {0};
+  start_meas(&non_task_time);
+
   c16_t pilot[3280] __attribute__((aligned(32)));
 
 #ifdef DEBUG_CH
@@ -532,16 +550,24 @@ int nr_pusch_channel_estimation(PHY_VARS_gNB *gNB,
     rdata->chest_freq = gNB->chest_freq;
     rdata->rxdataF = gNB->common_vars.rxdataF;
     rdata->ans = &ans;
+    rdata->frontend_task_cycles = frontend_task_cycles;
+    rdata->frontend_task_count = frontend_task_count;
     // Call the nr_pusch_antenna_processing function
     if (job_id == num_jobs - 1) {
       // Run the last job inline
+      stop_meas(&non_task_time);
+      add_pusch_frontend_work_cycles(frontend_task_cycles, &non_task_time);
       nr_pusch_antenna_processing(rdata);
+      start_meas(&non_task_time);
     } else {
       pushTpool(&gNB->threadPool, task);
     }
   } // Antenna Loop
 
+  stop_meas(&non_task_time);
+  add_pusch_frontend_work_cycles(frontend_task_cycles, &non_task_time);
   join_task_ans(&ans);
+  start_meas(&non_task_time);
 
   stop_meas(&gNB->pusch_channel_estimation_antenna_processing_stats);
   for (int aarx = 0; aarx < gNB->frame_parms.nb_antennas_rx; aarx++) {
@@ -565,6 +591,8 @@ int nr_pusch_channel_estimation(PHY_VARS_gNB *gNB,
     *nvar = (uint32_t)(noise_amp2 / nest_count);
   }
 
+  stop_meas(&non_task_time);
+  add_pusch_frontend_work_cycles(frontend_task_cycles, &non_task_time);
   return 0;
 }
 

@@ -1159,10 +1159,15 @@ typedef struct puschSymbolProc_s {
   uint32_t nvar;
   int beam_nb;
   task_ans_t *ans;
+  uint64_t *frontend_task_cycles;
+  uint64_t *frontend_task_count;
 } puschSymbolProc_t;
 
 static void nr_pusch_symbol_processing(void *arg)
 {
+  time_stats_t task_time = {0};
+  start_meas(&task_time);
+
   puschSymbolProc_t *rdata=(puschSymbolProc_t*)arg;
 
   PHY_VARS_gNB *gNB = rdata->gNB;
@@ -1208,8 +1213,20 @@ static void nr_pusch_symbol_processing(void *arg)
       llr16[i] = llr_ptr[i] * s[i];
   }
 
+  stop_meas(&task_time);
+  if (rdata->frontend_task_cycles != NULL) {
+    __atomic_fetch_add(rdata->frontend_task_cycles, task_time.p_time, __ATOMIC_RELAXED);
+    __atomic_fetch_add(rdata->frontend_task_count, 1, __ATOMIC_RELAXED);
+  }
+
   // Task running in // completed
   completed_task_ans(rdata->ans);
+}
+
+static inline void add_pusch_frontend_work_cycles(uint64_t *frontend_task_cycles, const time_stats_t *work_time)
+{
+  if (frontend_task_cycles != NULL)
+    __atomic_fetch_add(frontend_task_cycles, work_time->p_time, __ATOMIC_RELAXED);
 }
 
 static uint32_t average_u32(const uint32_t *x, uint16_t size)
@@ -1235,13 +1252,39 @@ static uint32_t average_u32(const uint32_t *x, uint16_t size)
   return (uint32_t)(sum_x / size);
 }
 
+static uint32_t pusch_rb_signal_power(PHY_VARS_gNB *gNB, int beam_nb, int aarx, uint8_t slot, int symbol, int absolute_rb)
+{
+  NR_DL_FRAME_PARMS *frame_parms = &gNB->frame_parms;
+  const int offset0 = ((slot & 3) * frame_parms->symbols_per_slot + symbol) * frame_parms->ofdm_symbol_size;
+  const int start_sc = absolute_rb * NR_NB_SC_PER_RB;
+  const int middle_sc = frame_parms->ofdm_symbol_size - frame_parms->first_carrier_offset;
+  const int offset = offset0 + (frame_parms->first_carrier_offset + start_sc) % frame_parms->ofdm_symbol_size;
+  c16_t *ul_ch = &gNB->common_vars.rxdataF[beam_nb][aarx][offset];
+
+  if (start_sc < middle_sc && start_sc + NR_NB_SC_PER_RB > middle_sc) {
+    const int before_wrap = middle_sc - start_sc;
+    const int after_wrap = NR_NB_SC_PER_RB - before_wrap;
+    uint64_t energy = signal_energy_nodc(ul_ch, before_wrap) * before_wrap;
+    ul_ch = &gNB->common_vars.rxdataF[beam_nb][aarx][offset0];
+    energy += signal_energy_nodc(ul_ch, after_wrap) * after_wrap;
+    return energy / NR_NB_SC_PER_RB;
+  }
+
+  return signal_energy_nodc(ul_ch, NR_NB_SC_PER_RB);
+}
+
 int nr_rx_pusch_tp(PHY_VARS_gNB *gNB,
                    uint8_t ulsch_id,
                    uint32_t frame,
                    uint8_t slot,
                    unsigned char harq_pid,
-                   int beam_nb)
+                   int beam_nb,
+                   uint64_t *frontend_task_cycles,
+                   uint64_t *frontend_task_count)
 {
+  time_stats_t non_task_time = {0};
+  start_meas(&non_task_time);
+
   NR_DL_FRAME_PARMS *frame_parms = &gNB->frame_parms;
   nfapi_nr_pusch_pdu_t *rel15_ul = &gNB->ulsch[ulsch_id].harq_process->ulsch_pdu;
 
@@ -1257,6 +1300,11 @@ int nr_rx_pusch_tp(PHY_VARS_gNB *gNB,
   int max_ch = 0;
   uint32_t nvar = 0;
   int end_symbol = rel15_ul->start_symbol_index + rel15_ul->nr_of_symbols;
+  int worst_rb_snr_x10 = 0x7fffffff;
+  pusch_vars->ulsch_worst_rb_power_tot = 0;
+  pusch_vars->ulsch_worst_rb_noise_power_tot = 0;
+  pusch_vars->ulsch_worst_rb_snr_x10 = 0;
+  pusch_vars->ulsch_worst_rb_index = -1;
   for(uint8_t symbol = rel15_ul->start_symbol_index; symbol < end_symbol; symbol++) {
     uint8_t dmrs_symbol_flag = (rel15_ul->ul_dmrs_symb_pos >> symbol) & 0x01;
     LOG_D(PHY, "symbol %d, dmrs_symbol_flag :%d\n", symbol, dmrs_symbol_flag);
@@ -1265,6 +1313,8 @@ int nr_rx_pusch_tp(PHY_VARS_gNB *gNB,
 
       for (int nl = 0; nl < rel15_ul->nrOfLayers; nl++) {
         uint32_t nvar_tmp = 0;
+        stop_meas(&non_task_time);
+        add_pusch_frontend_work_cycles(frontend_task_cycles, &non_task_time);
         nr_pusch_channel_estimation(gNB,
                                     slot,
                                     nl,
@@ -1275,7 +1325,10 @@ int nr_rx_pusch_tp(PHY_VARS_gNB *gNB,
                                     bwp_start_subcarrier,
                                     rel15_ul,
                                     &max_ch,
-                                    &nvar_tmp);
+                                    &nvar_tmp,
+                                    frontend_task_cycles,
+                                    frontend_task_count);
+        start_meas(&non_task_time);
         nvar += nvar_tmp;
       }
       // measure the SNR from the channel estimation
@@ -1290,6 +1343,38 @@ int nr_rx_pusch_tp(PHY_VARS_gNB *gNB,
                   frame_parms->nb_antennas_rx,
                   frame_parms->N_RB_UL,
                   false);
+      if (pusch_vars->ulsch_worst_rb_index < 0) {
+        const int rb0 = rel15_ul->bwp_start + rel15_ul->rb_start;
+        for (int rb = 0; rb < rel15_ul->rb_size; rb++) {
+          const int absolute_rb = rb0 + rb;
+          if (absolute_rb < 0 || absolute_rb >= frame_parms->N_RB_UL)
+            continue;
+
+          uint64_t rb_power_tot = 0;
+          uint64_t rb_noise_power_tot = 0;
+          for (int aarx = 0; aarx < frame_parms->nb_antennas_rx; aarx++) {
+            uint64_t rb_symbol_power = 0;
+            for (int s = rel15_ul->start_symbol_index; s < end_symbol; s++)
+              rb_symbol_power += pusch_rb_signal_power(gNB, beam_nb, aarx, slot, s, absolute_rb);
+            rb_power_tot += rb_symbol_power / rel15_ul->nr_of_symbols;
+            rb_noise_power_tot += n0_subband_power[aarx][absolute_rb];
+          }
+
+          if (rb_power_tot == 0 || rb_noise_power_tot == 0)
+            continue;
+
+          const uint32_t rb_power_tot_u32 = rb_power_tot > 0xffffffffu ? 0xffffffffu : (uint32_t)rb_power_tot;
+          const uint32_t rb_noise_power_tot_u32 = rb_noise_power_tot > 0xffffffffu ? 0xffffffffu : (uint32_t)rb_noise_power_tot;
+          const int rb_snr_x10 = dB_fixed_x10(rb_power_tot_u32) - dB_fixed_x10(rb_noise_power_tot_u32);
+          if (rb_snr_x10 < worst_rb_snr_x10) {
+            worst_rb_snr_x10 = rb_snr_x10;
+            pusch_vars->ulsch_worst_rb_power_tot = rb_power_tot_u32;
+            pusch_vars->ulsch_worst_rb_noise_power_tot = rb_noise_power_tot_u32;
+            pusch_vars->ulsch_worst_rb_snr_x10 = rb_snr_x10;
+            pusch_vars->ulsch_worst_rb_index = absolute_rb;
+          }
+        }
+      }
       for (int aarx = 0; aarx < frame_parms->nb_antennas_rx; aarx++) {
         if (symbol == rel15_ul->start_symbol_index) {
           pusch_vars->ulsch_power[aarx] = 0;
@@ -1504,9 +1589,14 @@ int nr_rx_pusch_tp(PHY_VARS_gNB *gNB,
       rdata->scramblingSequence = scramblingSequence;
       rdata->nvar = nvar;
       rdata->beam_nb = beam_nb;
+      rdata->frontend_task_cycles = frontend_task_cycles;
+      rdata->frontend_task_count = frontend_task_count;
 
       if (rel15_ul->pdu_bit_map & PUSCH_PDU_BITMAP_PUSCH_PTRS) {
+        stop_meas(&non_task_time);
+        add_pusch_frontend_work_cycles(frontend_task_cycles, &non_task_time);
         nr_pusch_symbol_processing(rdata);
+        start_meas(&non_task_time);
       } else {
         task_t t = {.func = &nr_pusch_symbol_processing, .args = rdata};
         pushTpool(&gNB->threadPool, t);
@@ -1518,7 +1608,10 @@ int nr_rx_pusch_tp(PHY_VARS_gNB *gNB,
     }
   } // symbol loop
 
+  stop_meas(&non_task_time);
+  add_pusch_frontend_work_cycles(frontend_task_cycles, &non_task_time);
   join_task_ans(&ans);
+  start_meas(&non_task_time);
   stop_meas(&gNB->rx_pusch_symbol_processing_stats);
 
   // Copy the data to the scope. This cannot be performed in one call to gNBscopeCopy because the data is not contiguous in the
@@ -1541,5 +1634,7 @@ int nr_rx_pusch_tp(PHY_VARS_gNB *gNB,
   }
   uint32_t total_llrs = total_res * rel15_ul->qam_mod_order * rel15_ul->nrOfLayers;
   gNBscopeCopyWithMetadata(gNB, gNBPuschLlr, pusch_vars->llr, sizeof(c16_t), 1, total_llrs, 0, &mt);
+  stop_meas(&non_task_time);
+  add_pusch_frontend_work_cycles(frontend_task_cycles, &non_task_time);
   return 0;
 }

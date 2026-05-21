@@ -311,6 +311,12 @@ void phy_procedures_gNB_TX(processingData_L1tx_t *msgTx,
   VCD_SIGNAL_DUMPER_DUMP_FUNCTION_BY_NAME(VCD_SIGNAL_DUMPER_FUNCTIONS_PHY_PROCEDURES_gNB_TX + gNB->CC_id, 0);
 }
 
+static inline void add_pusch_frontend_work_cycles(uint64_t *frontend_task_cycles, const time_stats_t *work_time)
+{
+  if (frontend_task_cycles != NULL)
+    __atomic_fetch_add(frontend_task_cycles, work_time->p_time, __ATOMIC_RELAXED);
+}
+
 static int nr_ulsch_procedures(PHY_VARS_gNB *gNB, int frame_rx, int slot_rx, bool *ulsch_to_decode, NR_UL_IND_t *UL_INFO)
 {
   NR_DL_FRAME_PARMS *frame_parms = &gNB->frame_parms;
@@ -533,6 +539,16 @@ void nr_fill_indication(PHY_VARS_gNB *gNB,
         dB_fixed_x10(gNB->pusch_vars[ULSCH_id].ulsch_power_tot) / 10.0,
         dB_fixed_x10(gNB->pusch_vars[ULSCH_id].ulsch_noise_power_tot) / 10.0,
         sync_pos);
+  if (gNB->pusch_vars[ULSCH_id].ulsch_worst_rb_index >= 0)
+    LOG_W(PHY,
+          "%d.%d: Worst RB SNR for PUSCH (UE %04x) is = %f dB (rb %d, rb_power %f, rb_noise %f)\n",
+          frame,
+          slot_rx,
+          ulsch->rnti,
+          gNB->pusch_vars[ULSCH_id].ulsch_worst_rb_snr_x10 / 10.0,
+          gNB->pusch_vars[ULSCH_id].ulsch_worst_rb_index,
+          dB_fixed_x10(gNB->pusch_vars[ULSCH_id].ulsch_worst_rb_power_tot) / 10.0,
+          dB_fixed_x10(gNB->pusch_vars[ULSCH_id].ulsch_worst_rb_noise_power_tot) / 10.0);
 
   int cqi;
   if      (SNRtimes10 < -640) cqi=0;
@@ -736,9 +752,14 @@ int phy_procedures_gNB_uespec_RX(PHY_VARS_gNB *gNB, int frame_rx, int slot_rx, N
   int pucch_decode_done = 0;
   int pusch_decode_done = 0;
   int pusch_DTX = 0;
+  time_stats_t i0_measurement_time = {0};
+  time_stats_t pucch_rx_time = {0};
+  time_stats_t pusch_detection_time = {0};
+  time_stats_t srs_rx_time = {0};
 
   VCD_SIGNAL_DUMPER_DUMP_FUNCTION_BY_NAME(VCD_SIGNAL_DUMPER_FUNCTIONS_PHY_PROCEDURES_gNB_UESPEC_RX,1);
   LOG_D(PHY,"phy_procedures_gNB_uespec_RX frame %d, slot %d\n",frame_rx,slot_rx);
+  start_meas(&i0_measurement_time);
   // Mask of occupied RBs, per symbol and PRB
   uint32_t rb_mask_ul[14][9];
   fill_ul_rb_mask(gNB, frame_rx, slot_rx, rb_mask_ul);
@@ -754,10 +775,13 @@ int phy_procedures_gNB_uespec_RX(PHY_VARS_gNB *gNB, int frame_rx, int slot_rx, N
   else
     num_symb = NR_NUMBER_OF_SYMBOLS_PER_SLOT;
   gNB_I0_measurements(gNB, slot_rx, first_symb, num_symb, rb_mask_ul);
+  stop_meas(&i0_measurement_time);
+  LOG_W(NR_PHY, "[rx_func] %d.%d: i0_measurement costs %.2f us\n", frame_rx, slot_rx, get_time_meas_us(&i0_measurement_time));
 
   const int soffset = (slot_rx & 3) * gNB->frame_parms.symbols_per_slot * gNB->frame_parms.ofdm_symbol_size;
   start_meas(&gNB->phy_proc_rx);
 
+  start_meas(&pucch_rx_time);
   for (int i = 0; i < gNB->max_nb_pucch; i++) {
     NR_gNB_PUCCH_t *pucch = &gNB->pucch[i];
     if (pucch) {
@@ -807,6 +831,8 @@ int phy_procedures_gNB_uespec_RX(PHY_VARS_gNB *gNB, int frame_rx, int slot_rx, N
       }
     }
   }
+  stop_meas(&pucch_rx_time);
+  LOG_W(NR_PHY, "[rx_func] %d.%d: pucch_rx costs %.2f us\n", frame_rx, slot_rx, get_time_meas_us(&pucch_rx_time));
 
   UL_INFO->crc_ind.sfn = frame_rx;
   UL_INFO->crc_ind.slot = slot_rx;
@@ -816,12 +842,17 @@ int phy_procedures_gNB_uespec_RX(PHY_VARS_gNB *gNB, int frame_rx, int slot_rx, N
   UL_INFO->rx_ind.pdu_list = UL_INFO->rx_pdu_list;
   bool ulsch_to_decode[gNB->max_nb_pusch];
   bzero((void *)ulsch_to_decode, sizeof(ulsch_to_decode));
+  uint64_t pusch_frontend_task_cycles = 0;
+  uint64_t pusch_frontend_task_count = 0;
   // LOG_W(NR_PHY,"gNB->max_nb_pusch = %d\n",gNB->max_nb_pusch);
+  start_meas(&pusch_detection_time);
   for (int ULSCH_id = 0; ULSCH_id < gNB->max_nb_pusch; ULSCH_id++) {
     NR_gNB_ULSCH_t *ulsch = &gNB->ulsch[ULSCH_id];
     NR_UL_gNB_HARQ_t *ulsch_harq = ulsch->harq_process;
     AssertFatal(ulsch_harq != NULL, "harq_pid %d is not allocated\n", ulsch->harq_pid);
     if ((ulsch->active == true) && (ulsch->frame == frame_rx) && (ulsch->slot == slot_rx) && (ulsch->handled == 0)) {
+      time_stats_t frontend_outer_work_time = {0};
+      start_meas(&frontend_outer_work_time);
       LOG_D(PHY, "PUSCH ID %d with RNTI %x detection started in frame %d slot %d\n", ULSCH_id, ulsch->rnti, frame_rx, slot_rx);
   
       int num_dmrs = 0;
@@ -866,7 +897,17 @@ int phy_procedures_gNB_uespec_RX(PHY_VARS_gNB *gNB, int frame_rx, int slot_rx, N
 
       VCD_SIGNAL_DUMPER_DUMP_FUNCTION_BY_NAME(VCD_SIGNAL_DUMPER_FUNCTIONS_NR_RX_PUSCH, 1);
       start_meas(&gNB->rx_pusch_stats);
-      nr_rx_pusch_tp(gNB, ULSCH_id, frame_rx, slot_rx, ulsch->harq_pid, ulsch->beam_nb);
+      stop_meas(&frontend_outer_work_time);
+      add_pusch_frontend_work_cycles(&pusch_frontend_task_cycles, &frontend_outer_work_time);
+      nr_rx_pusch_tp(gNB,
+                     ULSCH_id,
+                     frame_rx,
+                     slot_rx,
+                     ulsch->harq_pid,
+                     ulsch->beam_nb,
+                     &pusch_frontend_task_cycles,
+                     &pusch_frontend_task_count);
+      start_meas(&frontend_outer_work_time);
       NR_gNB_PUSCH *pusch_vars = &gNB->pusch_vars[ULSCH_id];
       pusch_vars->ulsch_power_tot = 0;
       pusch_vars->ulsch_noise_power_tot = 0;
@@ -899,6 +940,10 @@ int phy_procedures_gNB_uespec_RX(PHY_VARS_gNB *gNB, int frame_rx, int slot_rx, N
           nr_fill_indication(gNB, frame_rx, slot_rx, ULSCH_id, ulsch->harq_pid, 1, 1, crc, pdu);
           pusch_DTX++;
           gNBdumpScopeData(gNB, ulsch->slot, ulsch->frame, "ULSCH_DTX");
+          stop_meas(&gNB->rx_pusch_stats);
+          VCD_SIGNAL_DUMPER_DUMP_FUNCTION_BY_NAME(VCD_SIGNAL_DUMPER_FUNCTIONS_NR_RX_PUSCH, 0);
+          stop_meas(&frontend_outer_work_time);
+          add_pusch_frontend_work_cycles(&pusch_frontend_task_cycles, &frontend_outer_work_time);
           continue;
         }
       } else {
@@ -915,10 +960,24 @@ int phy_procedures_gNB_uespec_RX(PHY_VARS_gNB *gNB, int frame_rx, int slot_rx, N
       ulsch_to_decode[ULSCH_id] = true;
       stop_meas(&gNB->rx_pusch_stats);
       VCD_SIGNAL_DUMPER_DUMP_FUNCTION_BY_NAME(VCD_SIGNAL_DUMPER_FUNCTIONS_NR_RX_PUSCH, 0);
+      stop_meas(&frontend_outer_work_time);
+      add_pusch_frontend_work_cycles(&pusch_frontend_task_cycles, &frontend_outer_work_time);
       // LOG_M("rxdataF_comp.m","rxF_comp",gNB->pusch_vars[0]->rxdataF_comp[0],6900,1,1);
       // LOG_M("rxdataF_ext.m","rxF_ext",gNB->pusch_vars[0]->rxdataF_ext[0],6900,1,1);
     }
   }
+  stop_meas(&pusch_detection_time);
+  LOG_W(NR_PHY, "[rx_func] %d.%d: pusch_detection_frontend costs %.2f us\n", frame_rx, slot_rx, get_time_meas_us(&pusch_detection_time));
+  static double cpu_freq_GHz = 0.0;
+  if (cpu_freq_GHz == 0.0)
+    cpu_freq_GHz = get_cpu_freq_GHz();
+  const double pusch_frontend_task_us = pusch_frontend_task_cycles / cpu_freq_GHz / 1000.0;
+  LOG_W(NR_PHY,
+        "[rx_func] %d.%d: pusch_detection_frontend_task_work_sum costs %.2f us (%lu tasks)\n",
+        frame_rx,
+        slot_rx,
+        pusch_frontend_task_us,
+        pusch_frontend_task_count);
 
   /* Do ULSCH decoding time measurement only when number of PUSCH is limited to 1
    * (valid for unitary physical simulators). ULSCH processing lopp is then executed
@@ -939,7 +998,8 @@ int phy_procedures_gNB_uespec_RX(PHY_VARS_gNB *gNB, int frame_rx, int slot_rx, N
     stop_meas(&gNB->ulsch_decoding_stats);
     LOG_W(NR_PHY,"[rx_func] %d.%d:  ulsch_decoding costs %.2f us\n" ,frame_rx, slot_rx, get_time_meas_us(&gNB->ulsch_decoding_stats));
   // }
-    
+
+  start_meas(&srs_rx_time);
   for (int i = 0; i < gNB->max_nb_srs; i++) {
     NR_gNB_SRS_t *srs = &gNB->srs[i];
     if (srs) {
@@ -1157,8 +1217,11 @@ int phy_procedures_gNB_uespec_RX(PHY_VARS_gNB *gNB, int frame_rx, int slot_rx, N
       }
     }
   }
+  stop_meas(&srs_rx_time);
+  LOG_W(NR_PHY, "[rx_func] %d.%d: srs_rx costs %.2f us\n", frame_rx, slot_rx, get_time_meas_us(&srs_rx_time));
 
   stop_meas(&gNB->phy_proc_rx);
+  LOG_W(NR_PHY, "[rx_func] %d.%d: phy_uespec_rx_internal costs %.2f us\n", frame_rx, slot_rx, get_time_meas_us(&gNB->phy_proc_rx));
 
   if (pucch_decode_done || pusch_decode_done) {
     T(T_GNB_PHY_PUCCH_PUSCH_IQ, T_INT(frame_rx), T_INT(slot_rx), T_BUFFER(&gNB->common_vars.rxdataF[0][0][0], gNB->frame_parms.symbols_per_slot * gNB->frame_parms.ofdm_symbol_size * 4));

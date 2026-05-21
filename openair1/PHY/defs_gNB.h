@@ -315,6 +315,14 @@ typedef struct {
   // uint32_t ulsch_min_snr[8];
   /// total signal over antennas
   uint32_t ulsch_power_tot;
+  /// total signal over antennas on the worst PUSCH RB
+  uint32_t ulsch_worst_rb_power_tot;
+  /// measured RX noise power on the worst PUSCH RB
+  uint32_t ulsch_worst_rb_noise_power_tot;
+  /// worst PUSCH RB SNR in dB x10
+  int16_t ulsch_worst_rb_snr_x10;
+  /// absolute RB index of the worst PUSCH RB
+  int16_t ulsch_worst_rb_index;
   /// measured RX noise power  
   uint32_t ulsch_noise_power[8];
   /// total noise over antennas
@@ -596,6 +604,8 @@ typedef struct puschAntennaProc_s {
   NR_DL_FRAME_PARMS *frame_parms;
   c16_t ***rxdataF;
   task_ans_t* ans;
+  uint64_t *frontend_task_cycles;
+  uint64_t *frontend_task_count;
 } puschAntennaProc_t;
 
 struct puschAntennaReqId {
