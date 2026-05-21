@@ -46,7 +46,7 @@
 // 共享内存：读取 co_workload 施加的系统压力状态
 #include "LAYER2/NR_MAC_gNB/co_workload_shared.h"
 static shm_state_t *co_workload_shm = NULL;
-static int co_workload_init_done = 0;
+static int co_workload_attach_warned = 0;
 //#define SRS_IND_DEBUG
 
 
@@ -1826,19 +1826,20 @@ static void pf_ul(module_id_t module_id,
   const int min_rb = nrmac->min_grant_prb;
 
   // 读取 co_workload 共享内存中的系统压力状态
-  if (!co_workload_init_done) {
+  if (!co_workload_shm) {
     co_workload_shm = shm_init(0); // 只读打开，controller 未启动时返回 NULL
-    co_workload_init_done = 1;
-    if (co_workload_shm)
+    if (co_workload_shm) {
       LOG_W(NR_MAC, "[co_workload] shared memory attached\n");
-    else
+    } else if (!co_workload_attach_warned) {
       LOG_W(NR_MAC, "[co_workload] controller not running, skipping\n");
+      co_workload_attach_warned = 1;
+    }
   }
   if (co_workload_shm) {
     uint_fast32_t level = atomic_load(&co_workload_shm->level);
     uint_fast32_t type  = atomic_load(&co_workload_shm->type);
-    const char *level_str = (level <= 2) ? INTERF_LEVEL_NAMES[level] : "???";
-    const char *type_str  = (type  <= 2) ? INTERF_TYPE_NAMES[type]   : "???";
+    const char *level_str = (level < INTERF_LEVEL_NUM) ? INTERF_LEVEL_NAMES[level] : "???";
+    const char *type_str  = (type  < INTERF_TYPE_NUM) ? INTERF_TYPE_NAMES[type]   : "???";
     LOG_W(NR_MAC, "[co_workload] %d.%d: stress_level=%s, stress_type=%s\n",
           frame, slot, level_str, type_str);
   }

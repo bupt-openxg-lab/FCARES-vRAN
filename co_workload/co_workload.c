@@ -1,7 +1,7 @@
 // co_workload.c - 动态施加 stress 负载，模拟系统压力
 // 用法: ./controller [-d <ms>] [-p <pattern>]
 //   -d <ms>      每个等级持续时间，默认 500ms
-//   -p <pattern> 负载 pattern，如 "0,1,2,1,0"（L,M,H,M,L），或 "random"
+//   -p <pattern> 负载 pattern，如 "0,1,2,3,4,5,6,5,4,3,2,1,0"，或 "random"
 //
 // 编译: gcc -o controller co_workload.c -lrt
 #include <stdio.h>
@@ -13,12 +13,25 @@
 #include <time.h>
 #include "shared.h"
 
-enum { L = 0, M = 1, H = 2, NUM_LEVELS = 3 };
+enum {
+    NC = INTERF_LEVEL_NO_CACHE,
+    L = INTERF_LEVEL_L,
+    L_C8 = INTERF_LEVEL_L_C8,
+    M = INTERF_LEVEL_M,
+    H = INTERF_LEVEL_H,
+    XH = INTERF_LEVEL_XH,
+    XXH = INTERF_LEVEL_XXH,
+    NUM_LEVELS = INTERF_LEVEL_NUM
+};
 
 static const char *level_cmds[NUM_LEVELS] = {
-    "taskset -c 8 stress-ng --cache 8 --cache-level 3  ",
+    "sleep 6000s",
+    "taskset -c 9 stress-ng --cache 4 --cache-level 3 --timeout 6000s",
+    "taskset -c 8 stress-ng --cache 4 --cache-level 3 --timeout 6000s",
+    "taskset -c 9-11 stress-ng --cache 4 --cache-level 3 --timeout 6000s",
+    "taskset -c 9-15 stress-ng --cache 7 --cache-level 3 --timeout 6000s",
+    "taskset -c 8-15 stress-ng --cache 8 --cache-level 3  --timeout 6000s",
     "taskset -c 8-15 stress-ng --cache 16 --cache-level 3 --timeout 6000s",
-    "taskset -c 3 stress-ng --cache 1 --cache-level 3 --timeout 6000s",
 };
 
 static pid_t pids[NUM_LEVELS];
@@ -108,7 +121,7 @@ static void parse_pattern(const char *str, int **out_pattern, int *out_len)
         return;
     }
 
-    // 解析逗号分隔的数字，如 "0,1,2,1,0"
+    // 解析逗号分隔的数字，如 "0,1,2,3,4,5,6,5,4,3,2,1,0"
     int cap = 16, len = 0;
     int *pat = malloc(cap * sizeof(int));
     const char *p = str;
@@ -134,8 +147,9 @@ static void usage(const char *prog)
     fprintf(stderr,
             "Usage: %s [-d <ms>] [-p <pattern>]\n"
             "  -d <ms>      Duration per level in ms (default: 500)\n"
-            "  -p <pattern> Level pattern, e.g. \"0,1,2,1,0\" or \"random\"\n"
-            "               0=LOW, 1=MED, 2=HIGH (default: \"0,1,2,1,0\")\n",
+            "  -p <pattern> Level pattern, e.g. \"0,1,2,3,4,5,6,5,4,3,2,1,0\" or \"random\"\n"
+            "               0=NO_CACHE, 1=LOW, 2=LOW_C8, 3=MED, 4=HIGH, 5=XHIGH, 6=XXHIGH\n"
+            "               default: \"0,1,2,3,4,5,6,5,4,3,2,1,0\"\n",
             prog);
 }
 
@@ -144,7 +158,7 @@ static void usage(const char *prog)
 int main(int argc, char *argv[])
 {
     int duration_ms = 500;
-    const char *pattern_str = "0,1,2,1,0";
+    const char *pattern_str = "0,1,2,3,4,5,6,5,4,3,2,1,0";
     int *pattern = NULL;
     int pattern_len = 0;
     int random_mode = 0;
@@ -186,11 +200,11 @@ int main(int argc, char *argv[])
     }
 
     // 初始状态
-    publish(L, INTERF_TYPE_MIX);
+    publish(NC, INTERF_TYPE_MIX);
 
     fprintf(stderr, "[controller] starting stress-ng processes...\n");
 
-    // 预启动三档 stress-ng
+    // 预启动各档负载进程。NO_CACHE 使用 sleep 占位，不产生 stress-ng 负载。
     for (int i = 0; i < NUM_LEVELS; i++) {
         pids[i] = spawn(level_cmds[i]);
         if (pids[i] < 0) {
