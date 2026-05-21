@@ -38,7 +38,8 @@ CMakeUserPresets.json
 *.csv
 *.png
 *.log*
-
+*.pyc
+__pycache__/
 
 # 临时执行脚本与配置文件
 *.conf
@@ -53,3 +54,6 @@ freq_probe_core5
 venv/
 nginx/
 osjitter/
+python_scripts/output/
+automation/automation/
+automation/runs
