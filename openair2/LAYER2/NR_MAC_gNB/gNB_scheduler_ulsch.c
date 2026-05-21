@@ -2221,7 +2221,8 @@ static void pf_ul(module_id_t module_id,
       if (max_hcs_rb_size < 5) max_hcs_rb_size = 5;
       if (max_hcs_rb_size > 273) max_hcs_rb_size = 273;
     } else {
-      max_hcs_rb_size = rand_in_range(10, 273);
+      // max_hcs_rb_size = rand_in_range(10, 273);
+      max_hcs_rb_size = 250;
     }
     // uint16_t max_hcs_rb_size = 150;
     while (rbStart + max_rbSize < bwpSize && !(rballoc_mask[rbStart + bwpStart + max_rbSize] & slbitmap)){
@@ -2229,15 +2230,15 @@ static void pf_ul(module_id_t module_id,
     }
     max_rbSize = min(max_rbSize, max_hcs_rb_size);
     
-    double prediction =  LeafModelExported_predict_runtime_cost_p70(sched_pusch->mcs, sched_pusch->tda_info.nrOfSymbols,max_rbSize,sched_ctrl->ul_harq_processes[sched_pusch->ul_harq_pid].round);
-    int best_prb = select_prb(sched_pusch->mcs,sched_pusch->tda_info.nrOfSymbols,max_rbSize,sched_ctrl->ul_harq_processes[sched_pusch->ul_harq_pid].round);
-    LOG_W(PHY,"max_rbSize = %hd\n",max_rbSize);
-    max_rbSize = best_prb;
-    LOG_W(PHY,"[Predict Decode] sched %d.%d: prediction=%.2f us, mcs=%d, rb=%d, sym=%d, round=%d\n",
-          sched_frame, sched_slot, prediction,
-          sched_pusch->mcs, best_prb,
-          sched_pusch->tda_info.nrOfSymbols,
-          sched_ctrl->ul_harq_processes[sched_pusch->ul_harq_pid].round);
+    // double prediction =  LeafModelExported_predict_runtime_cost_p70(sched_pusch->mcs, sched_pusch->tda_info.nrOfSymbols,max_rbSize,sched_ctrl->ul_harq_processes[sched_pusch->ul_harq_pid].round);
+    // int best_prb = select_prb(sched_pusch->mcs,sched_pusch->tda_info.nrOfSymbols,max_rbSize,sched_ctrl->ul_harq_processes[sched_pusch->ul_harq_pid].round);
+    // LOG_W(PHY,"max_rbSize = %hd\n",max_rbSize);
+    // max_rbSize = best_prb;
+    // LOG_W(PHY,"[Predict Decode] sched %d.%d: prediction=%.2f us, mcs=%d, rb=%d, sym=%d, round=%d\n",
+    //       sched_frame, sched_slot, prediction,
+    //       sched_pusch->mcs, best_prb,
+    //       sched_pusch->tda_info.nrOfSymbols,
+    //       sched_ctrl->ul_harq_processes[sched_pusch->ul_harq_pid].round);
       //by Luhan
     // LOG_W(MAC,"---------------by Luhan, max_rbSize is %d, slot is %d, sched_slot is %d \n",max_rbSize, slot,sched_slot);
     
