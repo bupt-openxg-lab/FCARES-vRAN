@@ -126,20 +126,29 @@ static int overestim_bsr_index(int real_index)
   return real_index > 0 ? real_index + add_overestim : real_index;
 }
 
-static int estimate_ul_buffer_short_bsr(const NR_BSR_SHORT *bsr)
+static int estimate_ul_buffer_short_bsr(const NR_BSR_SHORT *bsr, frame_t frame, sub_frame_t slot, rnti_t rnti)
 {
   /* NOTE: the short BSR might be for different LCGID than 0, but we do not
    * differentiate them */
   int rep_idx = bsr->Buffer_size;
   int estim_idx = overestim_bsr_index(rep_idx);
   int max = sizeofArray(NR_SHORT_BSR_TABLE) - 1;
-  int idx = min(estim_idx, max);
-  int estim_size = NR_SHORT_BSR_TABLE[idx];
-  LOG_D(NR_MAC, "short BSR LCGID %d index %d estim index %d size %d\n", bsr->LcgID, rep_idx, estim_idx, estim_size);
+  int rep_size = NR_SHORT_BSR_TABLE[min(rep_idx, max)];
+  int estim_size = NR_SHORT_BSR_TABLE[min(estim_idx, max)];
+  LOG_W(NR_MAC,
+        "BSR RX SHORT at %4d.%2d RNTI %04x LCGID %d index %d bytes %d estim_index %d estim_bytes %d\n",
+        frame,
+        slot,
+        rnti,
+        bsr->LcgID,
+        rep_idx,
+        rep_size,
+        estim_idx,
+        estim_size);
   return estim_size;
 }
 
-static int estimate_ul_buffer_long_bsr(const NR_BSR_LONG *bsr)
+static int estimate_ul_buffer_long_bsr(const NR_BSR_LONG *bsr, frame_t frame, sub_frame_t slot, rnti_t rnti)
 {
   LOG_D(NR_MAC,
         "LONG BSR, LCG ID(7-0) %d/%d/%d/%d/%d/%d/%d/%d\n",
@@ -154,6 +163,7 @@ static int estimate_ul_buffer_long_bsr(const NR_BSR_LONG *bsr)
   bool bsr_active[8] = {bsr->LcgID0 != 0, bsr->LcgID1 != 0, bsr->LcgID2 != 0, bsr->LcgID3 != 0, bsr->LcgID4 != 0, bsr->LcgID5 != 0, bsr->LcgID6 != 0, bsr->LcgID7 != 0};
 
   int estim_size = 0;
+  int rep_size_total = 0;
   int max = sizeofArray(NR_LONG_BSR_TABLE) - 1;
   uint8_t *payload = ((uint8_t*) bsr) + 1;
   int m = 0;
@@ -163,12 +173,32 @@ static int estimate_ul_buffer_long_bsr(const NR_BSR_LONG *bsr)
       continue;
     int rep_idx = payload[m];
     int estim_idx = overestim_bsr_index(rep_idx);
-    int idx = min(estim_idx, max);
-    estim_size += NR_LONG_BSR_TABLE[idx];
+    int rep_size = NR_LONG_BSR_TABLE[min(rep_idx, max)];
+    int estim_lcg_size = NR_LONG_BSR_TABLE[min(estim_idx, max)];
+    rep_size_total += rep_size;
+    estim_size += estim_lcg_size;
 
-    LOG_D(NR_MAC, "LONG BSR LCGID/m %d/%d Index %d estim index %d size %d", n, m, rep_idx, estim_idx, estim_size);
+    LOG_W(NR_MAC,
+          "BSR RX LONG at %4d.%2d RNTI %04x LCGID %d payload_idx %d index %d bytes %d estim_index %d estim_bytes %d\n",
+          frame,
+          slot,
+          rnti,
+          n,
+          m,
+          rep_idx,
+          rep_size,
+          estim_idx,
+          estim_lcg_size);
     m++;
   }
+  LOG_W(NR_MAC,
+        "BSR RX LONG total at %4d.%2d RNTI %04x active_lcgs %d bytes %d estim_bytes %d\n",
+        frame,
+        slot,
+        rnti,
+        m,
+        rep_size_total,
+        estim_size);
   return estim_size;
 }
 
@@ -524,7 +554,7 @@ static int nr_process_mac_pdu(instance_t module_idP,
       case UL_SCH_LCID_S_BSR:
         /* Extract short BSR value */
         ce_ptr = &pduP[mac_subheader_len];
-        sched_ctrl->estimated_ul_buffer = estimate_ul_buffer_short_bsr((NR_BSR_SHORT *)ce_ptr);
+        sched_ctrl->estimated_ul_buffer = estimate_ul_buffer_short_bsr((NR_BSR_SHORT *)ce_ptr, frameP, slot, UE->rnti);
         LOG_W(NR_MAC, "SHORT BSR at %4d.%2d, est buf %d\n", frameP, slot, sched_ctrl->estimated_ul_buffer);
         break;
 
@@ -532,7 +562,7 @@ static int nr_process_mac_pdu(instance_t module_idP,
       case UL_SCH_LCID_L_BSR:
         /* Extract long BSR value */
         ce_ptr = &pduP[mac_subheader_len];
-        sched_ctrl->estimated_ul_buffer = estimate_ul_buffer_long_bsr((NR_BSR_LONG *)ce_ptr);
+        sched_ctrl->estimated_ul_buffer = estimate_ul_buffer_long_bsr((NR_BSR_LONG *)ce_ptr, frameP, slot, UE->rnti);
         LOG_W(NR_MAC, "LONG BSR at %4d.%2d, estim buf %d\n", frameP, slot, sched_ctrl->estimated_ul_buffer);
         break;
 

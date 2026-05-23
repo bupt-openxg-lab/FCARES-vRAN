@@ -177,6 +177,8 @@ typedef struct {
  int endSymbol;
  int slot;
  task_ans_t *ans;
+ uint64_t *fft_task_cycles;
+ uint64_t *fft_task_count;
 } feprx_cmd_t;
 
 typedef struct {

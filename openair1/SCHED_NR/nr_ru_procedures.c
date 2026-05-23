@@ -39,11 +39,46 @@
 #include "common/utils/system.h"
 #include "common/utils/LOG/vcd_signal_dumper.h"
 
+#include "../../openair2/LAYER2/NR_MAC_gNB/co_workload_shared.h"
+
 #include "T.h"
 
 #include "assertions.h"
 
+#include <stdbool.h>
+#include <stdint.h>
 #include <time.h>
+
+static inline void add_ru_fft_work_cycles(uint64_t *fft_task_cycles, uint64_t *fft_task_count, const time_stats_t *work_time)
+{
+  __atomic_fetch_add(fft_task_cycles, work_time->p_time, __ATOMIC_RELAXED);
+  __atomic_fetch_add(fft_task_count, 1, __ATOMIC_RELAXED);
+}
+
+static shm_state_t *ru_fep_co_workload_shm;
+static int ru_fep_co_workload_attach_warned;
+
+static void ru_fep_get_co_workload_state(const char **level_str, const char **type_str)
+{
+  *level_str = "UNKNOWN";
+  *type_str = "UNKNOWN";
+  if (!ru_fep_co_workload_shm) {
+    ru_fep_co_workload_shm = shm_init(0);
+    if (ru_fep_co_workload_shm) {
+      LOG_W(NR_PHY, "[ru_fep] co_workload shared memory attached\n");
+    } else if (!ru_fep_co_workload_attach_warned) {
+      LOG_W(NR_PHY, "[ru_fep] co_workload controller not running, use UNKNOWN state\n");
+      ru_fep_co_workload_attach_warned = 1;
+    }
+  }
+  if (!ru_fep_co_workload_shm)
+    return;
+
+  uint_fast32_t level = atomic_load(&ru_fep_co_workload_shm->level);
+  uint_fast32_t type = atomic_load(&ru_fep_co_workload_shm->type);
+  *level_str = (level < INTERF_LEVEL_NUM) ? INTERF_LEVEL_NAMES[level] : "UNKNOWN";
+  *type_str = (type < INTERF_TYPE_NUM) ? INTERF_TYPE_NAMES[type] : "UNKNOWN";
+}
 
 // RU OFDM Modulator gNodeB
 // OFDM modulation core routine, generates a first_symbol to first_symbol+num_symbols on a particular slot and TX antenna port
@@ -344,6 +379,9 @@ void nr_feptx_tp(RU_t *ru, int frame_tx, int slot)
 // core RX FEP routine, called by threads in RU thread-pool
 void nr_fep(void* arg)
 {
+  time_stats_t task_time = {0};
+  start_meas(&task_time);
+
   feprx_cmd_t *feprx_cmd = (feprx_cmd_t *)arg;
   RU_t *ru         = feprx_cmd->ru;
   int aid          = feprx_cmd->aid;
@@ -366,6 +404,9 @@ void nr_fep(void* arg)
                      ru->N_TA_offset);
   VCD_SIGNAL_DUMPER_DUMP_FUNCTION_BY_NAME(VCD_SIGNAL_DUMPER_FUNCTIONS_PHY_PROCEDURES_RU_FEPRX+aid, 0);
 
+  stop_meas(&task_time);
+  add_ru_fft_work_cycles(feprx_cmd->fft_task_cycles, feprx_cmd->fft_task_count, &task_time);
+
   // Task completed in //
   completed_task_ans(feprx_cmd->ans);
 }
@@ -381,6 +422,8 @@ void nr_fep_tp(RU_t *ru, int slot) {
   feprx_cmd_t arr[sz];
   task_ans_t ans;
   init_task_ans(&ans, sz);
+  uint64_t fft_task_cycles = 0;
+  uint64_t fft_task_count = 0;
 
   for (int aid=0;aid<ru->nb_rx;aid++) {
     feprx_cmd_t *feprx_cmd = &arr[nbfeprx];
@@ -392,6 +435,8 @@ void nr_fep_tp(RU_t *ru, int slot) {
     feprx_cmd->startSymbol = 0;
     feprx_cmd->endSymbol = (ru->half_slot_parallelization > 0) ? (ru->nr_frame_parms->symbols_per_slot >> 1) - 1
                                                                : (ru->nr_frame_parms->symbols_per_slot - 1);
+    feprx_cmd->fft_task_cycles = &fft_task_cycles;
+    feprx_cmd->fft_task_count = &fft_task_count;
 
     task_t t = {.func = nr_fep, .args = feprx_cmd};
     pushTpool(ru->threadPool, t);
@@ -405,6 +450,8 @@ void nr_fep_tp(RU_t *ru, int slot) {
       feprx_cmd->slot = ru->proc.tti_rx;
       feprx_cmd->startSymbol = ru->nr_frame_parms->symbols_per_slot >> 1;
       feprx_cmd->endSymbol = ru->nr_frame_parms->symbols_per_slot - 1;
+      feprx_cmd->fft_task_cycles = &fft_task_cycles;
+      feprx_cmd->fft_task_count = &fft_task_count;
 
       task_t t = {.func = nr_fep, .args = feprx_cmd};
       pushTpool(ru->threadPool, t);
@@ -415,6 +462,22 @@ void nr_fep_tp(RU_t *ru, int slot) {
   join_task_ans(&ans);
 
   stop_meas(&ru->ofdm_demod_stats);
+  static double cpu_freq_GHz = 0.0;
+  if (cpu_freq_GHz == 0.0)
+    cpu_freq_GHz = get_cpu_freq_GHz();
+  const double fft_task_us = fft_task_cycles / cpu_freq_GHz / 1000.0;
+  const char *stress_level;
+  const char *stress_type;
+  ru_fep_get_co_workload_state(&stress_level, &stress_type);
+  LOG_W(NR_PHY,
+        "[ru_fep] %d.%d: ru_rx_fft_task_work_sum costs %.2f us (%lu tasks, nb_rx %d, ofdm_symbol_size %d, stress_level=%s, stress_type=%s)\n",
+        ru->proc.frame_rx,
+        ru->proc.tti_rx,
+        fft_task_us,
+        fft_task_count,
+        ru->nb_rx,
+        ru->nr_frame_parms->ofdm_symbol_size,
+        stress_level,
+        stress_type);
   if (ru->idx == 0) VCD_SIGNAL_DUMPER_DUMP_FUNCTION_BY_NAME( VCD_SIGNAL_DUMPER_FUNCTIONS_PHY_PROCEDURES_RU_FEPRX, 0 );
 }
-
