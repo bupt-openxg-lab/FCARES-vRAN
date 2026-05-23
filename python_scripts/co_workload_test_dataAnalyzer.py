@@ -51,6 +51,17 @@ RE_RX_FUNC_COST = re.compile(
     r"(?P<cost>[0-9]+(?:\.[0-9]+)?)\s*us",
     re.IGNORECASE,
 )
+RE_RU_FEP_COST = re.compile(
+    r"\[ru_fep\]\s*"
+    r"(?P<frame>\d+)\.(?P<slot>\d+)\s*:\s*"
+    r"(?P<name>(?:pusch|ru)_rx_fft_task_work_sum)\s+costs\s+"
+    r"(?P<cost>[0-9]+(?:\.[0-9]+)?)\s*us\s*"
+    r"\((?P<tasks>[0-9]+)\s+tasks,\s*"
+    r"nb_rx\s+(?P<nb_rx>[0-9]+),\s*"
+    r"ofdm_symbol_size\s+(?P<ofdm_symbol_size>[0-9]+)"
+    r"(?:,\s*stress_level=(?P<stress_level>[A-Za-z0-9_+-]+),\s*stress_type=(?P<stress_type>[A-Za-z0-9_+./-]+))?\)",
+    re.IGNORECASE,
+)
 RE_COST = re.compile(
     r"\[rx_func\].*ulsch_decoding\s+costs\s+([0-9]+(?:\.[0-9]+)?)\s*us",
     re.IGNORECASE,
@@ -119,8 +130,18 @@ RX_FUNC_TIMING_TO_COL = {
     "ul_indication": "ul_indication_cost",
     "l1_rx_out_notify": "l1_rx_out_notify_cost",
     "rxfunc": "rxfunc_cost",
+    "pusch_rx_fft_task_work_sum": "pusch_rx_fft_task_work_sum_cost",
+    "ru_rx_fft_task_work_sum": "ru_rx_fft_task_work_sum_cost",
 }
 RX_FUNC_TIMING_COLUMNS = list(RX_FUNC_TIMING_TO_COL.values())
+SLOT_TIMING_EXTRA_COLUMNS = [
+    "pusch_rx_fft_task_count",
+    "pusch_rx_fft_nb_rx",
+    "pusch_rx_fft_ofdm_symbol_size",
+    "ru_fep_stress_level",
+    "ru_fep_stress_type",
+]
+SLOT_TIMING_COPY_COLUMNS = RX_FUNC_TIMING_COLUMNS + SLOT_TIMING_EXTRA_COLUMNS
 
 
 def parse_int(pattern: re.Pattern[str], line: str) -> Optional[int]:
@@ -215,16 +236,17 @@ def extract_strict_frame_based(log_path: str) -> Tuple[List[Dict[str, Any]], Lis
     slot_snr_keys: List[Tuple[int, int, int]] = []
     current_slot_timing: Optional[Dict[str, Any]] = None
     current_slot_timing_key: Optional[Tuple[int, int, int]] = None
+    slot_timing_by_key: Dict[Tuple[int, int, int], Dict[str, Any]] = {}
     next_slot_timing_id = 0
 
     def flush_slot_timing() -> None:
         nonlocal current_slot_timing, current_slot_timing_key
-        if current_slot_timing is not None:
+        if current_slot_timing is not None and current_slot_timing not in slot_timing_rows:
             slot_timing_rows.append(current_slot_timing)
         current_slot_timing = None
         current_slot_timing_key = None
 
-    def record_rx_func_timing(frame: int, slot: int, name: str, cost_us: float) -> None:
+    def record_slot_timing(frame: int, slot: int, name: str, cost_us: float, extra: Optional[Dict[str, Any]] = None) -> None:
         nonlocal current_slot_timing, current_slot_timing_key, next_slot_timing_id
         nonlocal rotation_slot, last_rotation_cost
 
@@ -237,6 +259,7 @@ def extract_strict_frame_based(log_path: str) -> Tuple[List[Dict[str, Any]], Lis
         key = (frame, slot, segment_id)
         if current_slot_timing_key is not None and current_slot_timing_key != key:
             flush_slot_timing()
+        current_slot_timing = slot_timing_by_key.get(key)
         if current_slot_timing is None:
             current_slot_timing = row_with_workload({
                 "timing_id": next_slot_timing_id,
@@ -244,9 +267,14 @@ def extract_strict_frame_based(log_path: str) -> Tuple[List[Dict[str, Any]], Lis
                 "slot": slot,
             }, current_workload)
             next_slot_timing_id += 1
+            slot_timing_by_key[key] = current_slot_timing
+            current_slot_timing_key = key
+        else:
             current_slot_timing_key = key
 
         current_slot_timing[cost_col] = cost_us
+        if extra:
+            current_slot_timing.update(extra)
         if cost_col == "apply_nr_rotation_rx_cost":
             if current_frame == frame and current_slot == slot:
                 rotation_slot = cost_us
@@ -335,9 +363,30 @@ def extract_strict_frame_based(log_path: str) -> Tuple[List[Dict[str, Any]], Lis
                 rx_slot_id = int(m_rx_cost.group("slot"))
                 rx_name = m_rx_cost.group("name")
                 rx_cost = float(m_rx_cost.group("cost"))
-                record_rx_func_timing(rx_frame, rx_slot_id, rx_name, rx_cost)
+                record_slot_timing(rx_frame, rx_slot_id, rx_name, rx_cost)
                 if rx_name.lower() != "ulsch_decoding":
                     continue
+
+            m_ru_fep_cost = RE_RU_FEP_COST.search(line)
+            if m_ru_fep_cost:
+                ru_fep_extra = {
+                    "pusch_rx_fft_task_work_sum_cost": float(m_ru_fep_cost.group("cost")),
+                    "pusch_rx_fft_task_count": int(m_ru_fep_cost.group("tasks")),
+                    "pusch_rx_fft_nb_rx": int(m_ru_fep_cost.group("nb_rx")),
+                    "pusch_rx_fft_ofdm_symbol_size": int(m_ru_fep_cost.group("ofdm_symbol_size")),
+                }
+                if m_ru_fep_cost.group("stress_level"):
+                    ru_fep_extra["ru_fep_stress_level"] = m_ru_fep_cost.group("stress_level").upper()
+                if m_ru_fep_cost.group("stress_type"):
+                    ru_fep_extra["ru_fep_stress_type"] = m_ru_fep_cost.group("stress_type").upper()
+                record_slot_timing(
+                    int(m_ru_fep_cost.group("frame")),
+                    int(m_ru_fep_cost.group("slot")),
+                    m_ru_fep_cost.group("name"),
+                    float(m_ru_fep_cost.group("cost")),
+                    ru_fep_extra,
+                )
+                continue
 
             if current_frame is None:
                 continue
@@ -790,7 +839,7 @@ def extract_strict_frame_based(log_path: str) -> Tuple[List[Dict[str, Any]], Lis
                 timing_row = slot_timing_lookup.get((row.get("frame"), row.get("slot"), row.get("stress_segment_id")))
             if not timing_row:
                 continue
-            for col in RX_FUNC_TIMING_COLUMNS:
+            for col in SLOT_TIMING_COPY_COLUMNS:
                 if col in timing_row and (col not in row or row.get(col) in (None, "")):
                     row[col] = timing_row[col]
 

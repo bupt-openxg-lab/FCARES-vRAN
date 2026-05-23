@@ -55,6 +55,8 @@ def add_absolute_frame(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
     def sort_key(row: Dict[str, Any]) -> Tuple[int, int, int]:
         row_id = to_int(row.get("id"))
+        if row_id is None:
+            row_id = to_int(row.get("timing_id"))
         frame = to_int(row.get("frame"))
         slot = to_int(row.get("slot"))
         return (
@@ -111,9 +113,16 @@ def filter_rows(rows: List[Dict[str, Any]], filters: Dict[str, Any]) -> List[Dic
     return [row for row in rows if row_matches_filters(row, filters)]
 
 
-def infer_state(row: Dict[str, Any], forced_state: Optional[str]) -> str:
+def infer_state(row: Dict[str, Any], forced_state: Optional[str], state_col: Optional[str] = None) -> str:
     if forced_state:
         return forced_state.upper()
+    if state_col:
+        selected_state = str(row.get(state_col) or "").strip().upper()
+        if selected_state and selected_state != "UNKNOWN":
+            return selected_state
+    ru_fep_state = str(row.get("ru_fep_stress_level") or "").strip().upper()
+    if ru_fep_state and ru_fep_state != "UNKNOWN":
+        return ru_fep_state
     system_state = str(row.get("system_state") or "").strip().upper()
     if system_state and system_state != "UNKNOWN":
         return system_state
@@ -130,7 +139,7 @@ def infer_state(row: Dict[str, Any], forced_state: Optional[str]) -> str:
     return label if label else "UNKNOWN"
 
 
-def build_delay_rows(rows: List[Dict[str, Any]], cost_cols: List[str], forced_state: Optional[str]) -> List[Dict[str, Any]]:
+def build_delay_rows(rows: List[Dict[str, Any]], cost_cols: List[str], forced_state: Optional[str], state_col: Optional[str]) -> List[Dict[str, Any]]:
     grouped: Dict[Tuple[int, int], Dict[str, Any]] = {}
     for row in rows:
         frame = to_int(row.get("frame"))
@@ -154,7 +163,7 @@ def build_delay_rows(rows: List[Dict[str, Any]], cost_cols: List[str], forced_st
                 "abs_slot": abs_slot,
                 "delay_us": 0.0,
                 "row_count": 0,
-                "system_state": infer_state(row, forced_state),
+                "system_state": infer_state(row, forced_state, state_col),
                 "stress_label": row.get("stress_label", ""),
             }
             grouped[key] = existing
@@ -163,7 +172,7 @@ def build_delay_rows(rows: List[Dict[str, Any]], cost_cols: List[str], forced_st
     return [grouped[key] for key in sorted(grouped)]
 
 
-def build_not_detected_rows(rows: List[Dict[str, Any]], forced_state: Optional[str]) -> List[Dict[str, Any]]:
+def build_not_detected_rows(rows: List[Dict[str, Any]], forced_state: Optional[str], state_col: Optional[str]) -> List[Dict[str, Any]]:
     grouped: Dict[int, Dict[str, Any]] = {}
     for row in rows:
         frame = to_int(row.get("frame"))
@@ -183,7 +192,7 @@ def build_not_detected_rows(rows: List[Dict[str, Any]], forced_state: Optional[s
                 "abs_slot": abs_slot,
                 "not_detected_count": 0,
                 "rntis": [],
-                "system_state": infer_state(row, forced_state),
+                "system_state": infer_state(row, forced_state, state_col),
                 "stress_label": row.get("stress_label", ""),
                 "mcs": row.get("mcs", ""),
                 "nb_rb": row.get("nb_rb", ""),
@@ -468,6 +477,7 @@ def main() -> None:
     parser.add_argument("--cost-cols", default=DEFAULT_COST_COLS, help="Comma-separated cost columns to add per frame.slot")
     parser.add_argument("--not-detected-input", default=None, help="Optional PUSCH not detected CSV. Default: <input_stem>_not_detected.csv if it exists")
     parser.add_argument("--state", default=None, help="Force all rows to one system state, e.g. NO_CACHE or XXHIGH")
+    parser.add_argument("--state-col", default=None, help="Column to use as system-state label, e.g. ru_fep_stress_level")
     parser.add_argument("--mcs", type=int, default=None, help="Only keep delay and not-detected rows with this mcs value")
     parser.add_argument("--nb-rb", type=int, default=None, help="Only keep delay and not-detected rows with this nb_rb value")
     parser.add_argument("--nb-symbol", type=int, default=None, help="Only keep delay and not-detected rows with this nb_symbol value")
@@ -512,8 +522,8 @@ def main() -> None:
 
     rows = filter_rows(rows, source_filters)
     raw_nd_rows = filter_rows(raw_nd_rows, not_detected_filters)
-    not_detected_rows = build_not_detected_rows(raw_nd_rows, args.state)
-    delay_rows = build_delay_rows(rows, cost_cols, args.state)
+    not_detected_rows = build_not_detected_rows(raw_nd_rows, args.state, args.state_col)
+    delay_rows = build_delay_rows(rows, cost_cols, args.state, args.state_col)
     if not delay_rows:
         available_cols = sorted({key for row in rows for key in row})
         raise SystemExit(
