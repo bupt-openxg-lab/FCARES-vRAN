@@ -56,5 +56,6 @@ venv/
 nginx/
 osjitter/
 python_scripts/output/
+doc/paper_vran_sched/
 automation/automation/
 automation/runs
