@@ -140,6 +140,7 @@ SLOT_TIMING_EXTRA_COLUMNS = [
     "pusch_rx_fft_ofdm_symbol_size",
     "ru_fep_stress_level",
     "ru_fep_stress_type",
+    "ru_fep_line_no",
 ]
 SLOT_TIMING_COPY_COLUMNS = RX_FUNC_TIMING_COLUMNS + SLOT_TIMING_EXTRA_COLUMNS
 
@@ -236,13 +237,24 @@ def extract_strict_frame_based(log_path: str) -> Tuple[List[Dict[str, Any]], Lis
     slot_snr_keys: List[Tuple[int, int, int]] = []
     current_slot_timing: Optional[Dict[str, Any]] = None
     current_slot_timing_key: Optional[Tuple[int, int, int]] = None
-    slot_timing_by_key: Dict[Tuple[int, int, int], Dict[str, Any]] = {}
+    active_slot_timings: Dict[Tuple[int, int, int], Dict[str, Any]] = {}
     next_slot_timing_id = 0
 
     def flush_slot_timing() -> None:
         nonlocal current_slot_timing, current_slot_timing_key
         if current_slot_timing is not None and current_slot_timing not in slot_timing_rows:
             slot_timing_rows.append(current_slot_timing)
+        if current_slot_timing_key is not None:
+            active_slot_timings.pop(current_slot_timing_key, None)
+        current_slot_timing = None
+        current_slot_timing_key = None
+
+    def flush_all_slot_timings() -> None:
+        nonlocal current_slot_timing, current_slot_timing_key
+        for timing_row in list(active_slot_timings.values()):
+            if timing_row not in slot_timing_rows:
+                slot_timing_rows.append(timing_row)
+        active_slot_timings.clear()
         current_slot_timing = None
         current_slot_timing_key = None
 
@@ -257,9 +269,7 @@ def extract_strict_frame_based(log_path: str) -> Tuple[List[Dict[str, Any]], Lis
 
         segment_id = int(current_workload.get("stress_segment_id", -1))
         key = (frame, slot, segment_id)
-        if current_slot_timing_key is not None and current_slot_timing_key != key:
-            flush_slot_timing()
-        current_slot_timing = slot_timing_by_key.get(key)
+        current_slot_timing = active_slot_timings.get(key)
         if current_slot_timing is None:
             current_slot_timing = row_with_workload({
                 "timing_id": next_slot_timing_id,
@@ -267,10 +277,8 @@ def extract_strict_frame_based(log_path: str) -> Tuple[List[Dict[str, Any]], Lis
                 "slot": slot,
             }, current_workload)
             next_slot_timing_id += 1
-            slot_timing_by_key[key] = current_slot_timing
-            current_slot_timing_key = key
-        else:
-            current_slot_timing_key = key
+            active_slot_timings[key] = current_slot_timing
+        current_slot_timing_key = key
 
         current_slot_timing[cost_col] = cost_us
         if extra:
@@ -279,14 +287,17 @@ def extract_strict_frame_based(log_path: str) -> Tuple[List[Dict[str, Any]], Lis
             if current_frame == frame and current_slot == slot:
                 rotation_slot = cost_us
             last_rotation_cost = cost_us
+        if cost_col == "rxfunc_cost":
+            flush_slot_timing()
 
     def current_slot_timing_id_for(frame: Optional[int], slot: Optional[int]) -> Optional[int]:
-        if frame is None or slot is None or current_slot_timing is None:
+        if frame is None or slot is None:
             return None
         segment_id = int(current_workload.get("stress_segment_id", -1))
-        if current_slot_timing_key != (frame, slot, segment_id):
+        timing_row = active_slot_timings.get((frame, slot, segment_id))
+        if timing_row is None:
             return None
-        return current_slot_timing.get("timing_id")
+        return timing_row.get("timing_id")
 
     def reset_slot_state() -> None:
         nonlocal snr_slot, worst_rb_snr_slot, crc_slot, rotation_slot
@@ -304,17 +315,29 @@ def extract_strict_frame_based(log_path: str) -> Tuple[List[Dict[str, Any]], Lis
         slot_sched_added = []
         slot_snr_keys = []
 
+    def clear_sched_for_slot(frame: Optional[int], slot: Optional[int]) -> None:
+        nonlocal slot_sched_added, slot_snr_keys
+        if frame is None or slot is None:
+            return
+        for key, bucket in frames.items():
+            if key[0] == frame and key[1] == slot:
+                bucket["sched"].clear()
+        slot_sched_added = [
+            key for key in slot_sched_added
+            if not (key[0] == frame and key[1] == slot)
+        ]
+        slot_snr_keys = [
+            key for key in slot_snr_keys
+            if not (key[0] == frame and key[1] == slot)
+        ]
+
     def mark_skip(reason: str, line_no: int) -> None:
         nonlocal skip_frame, current_decoding
         if skip_frame:
             return
         skip_frame = True
         current_decoding = None
-        for sched_key in slot_snr_keys:
-            while frames[sched_key]["sched"]:
-                frames[sched_key]["sched"].pop()
-        slot_sched_added.clear()
-        slot_snr_keys.clear()
+        clear_sched_for_slot(current_frame, current_slot)
         print(f"[WARN] Skip slot {current_frame}.{current_slot}: {reason} (line {line_no})")
 
     def consume_sched(sched_key: Tuple[int, int, int]) -> Optional[Dict[str, Any]]:
@@ -351,9 +374,10 @@ def extract_strict_frame_based(log_path: str) -> Tuple[List[Dict[str, Any]], Lis
             # 1) Slot anchor.
             m = RE_SLOT.search(line)
             if m:
-                flush_slot_timing()
-                current_frame = int(m.group(1))
-                current_slot = int(m.group(2))
+                slot_frame = int(m.group(1))
+                slot_id = int(m.group(2))
+                current_frame = slot_frame
+                current_slot = slot_id
                 reset_slot_state()
                 continue
 
@@ -374,6 +398,7 @@ def extract_strict_frame_based(log_path: str) -> Tuple[List[Dict[str, Any]], Lis
                     "pusch_rx_fft_task_count": int(m_ru_fep_cost.group("tasks")),
                     "pusch_rx_fft_nb_rx": int(m_ru_fep_cost.group("nb_rx")),
                     "pusch_rx_fft_ofdm_symbol_size": int(m_ru_fep_cost.group("ofdm_symbol_size")),
+                    "ru_fep_line_no": line_no,
                 }
                 if m_ru_fep_cost.group("stress_level"):
                     ru_fep_extra["ru_fep_stress_level"] = m_ru_fep_cost.group("stress_level").upper()
@@ -542,6 +567,8 @@ def extract_strict_frame_based(log_path: str) -> Tuple[List[Dict[str, Any]], Lis
             # 8) Decoding header.
             m_dec = RE_DECODING.search(line)
             if m_dec:
+                if skip_frame:
+                    continue
                 dec_rnti = extract_rnti_from_line(line)
                 if not dec_rnti:
                     raise RuntimeError(
@@ -818,7 +845,7 @@ def extract_strict_frame_based(log_path: str) -> Tuple[List[Dict[str, Any]], Lis
                 next_id += 1
                 continue
 
-    flush_slot_timing()
+    flush_all_slot_timings()
 
     slot_timing_by_id = {
         row.get("timing_id"): row
