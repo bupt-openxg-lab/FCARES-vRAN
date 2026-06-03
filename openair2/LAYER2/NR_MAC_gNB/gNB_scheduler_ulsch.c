@@ -2252,7 +2252,7 @@ static void pf_ul(module_id_t module_id,
       if (max_hcs_rb_size > 273) max_hcs_rb_size = 273;
     } else {
       // max_hcs_rb_size = rand_in_range(10, 273);
-      max_hcs_rb_size = 250;
+      max_hcs_rb_size = 273;
     }
     // uint16_t max_hcs_rb_size = 150;
     while (rbStart + max_rbSize < bwpSize && !(rballoc_mask[rbStart + bwpStart + max_rbSize] & slbitmap)){

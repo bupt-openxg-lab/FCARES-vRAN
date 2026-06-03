@@ -539,16 +539,16 @@ void nr_fill_indication(PHY_VARS_gNB *gNB,
         dB_fixed_x10(gNB->pusch_vars[ULSCH_id].ulsch_power_tot) / 10.0,
         dB_fixed_x10(gNB->pusch_vars[ULSCH_id].ulsch_noise_power_tot) / 10.0,
         sync_pos);
-  if (gNB->pusch_vars[ULSCH_id].ulsch_worst_rb_index >= 0)
-    LOG_W(PHY,
-          "%d.%d: Worst RB SNR for PUSCH (UE %04x) is = %f dB (rb %d, rb_power %f, rb_noise %f)\n",
-          frame,
-          slot_rx,
-          ulsch->rnti,
-          gNB->pusch_vars[ULSCH_id].ulsch_worst_rb_snr_x10 / 10.0,
-          gNB->pusch_vars[ULSCH_id].ulsch_worst_rb_index,
-          dB_fixed_x10(gNB->pusch_vars[ULSCH_id].ulsch_worst_rb_power_tot) / 10.0,
-          dB_fixed_x10(gNB->pusch_vars[ULSCH_id].ulsch_worst_rb_noise_power_tot) / 10.0);
+  // if (gNB->pusch_vars[ULSCH_id].ulsch_worst_rb_index >= 0)
+  //   LOG_W(PHY,
+  //         "%d.%d: Worst RB SNR for PUSCH (UE %04x) is = %f dB (rb %d, rb_power %f, rb_noise %f)\n",
+  //         frame,
+  //         slot_rx,
+  //         ulsch->rnti,
+  //         gNB->pusch_vars[ULSCH_id].ulsch_worst_rb_snr_x10 / 10.0,
+  //         gNB->pusch_vars[ULSCH_id].ulsch_worst_rb_index,
+  //         dB_fixed_x10(gNB->pusch_vars[ULSCH_id].ulsch_worst_rb_power_tot) / 10.0,
+  //         dB_fixed_x10(gNB->pusch_vars[ULSCH_id].ulsch_worst_rb_noise_power_tot) / 10.0);
 
   int cqi;
   if      (SNRtimes10 < -640) cqi=0;
