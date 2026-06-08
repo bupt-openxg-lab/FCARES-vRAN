@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
+FRAME_MODULO = 1024
+SLOT_MODULO = 20
 
 # -----------------------------------------------------------------------------
 # Regex patterns inherited from the original L1/OAI log parser.
@@ -220,6 +222,7 @@ def extract_strict_frame_based(log_path: str) -> Tuple[List[Dict[str, Any]], Lis
 
     current_frame: Optional[int] = None
     current_slot: Optional[int] = None
+    current_abs_frame: Optional[int] = None
     current_decoding: Optional[Dict[str, Any]] = None
     current_workload = make_unknown_workload()
     current_segment_id = -1
@@ -238,12 +241,18 @@ def extract_strict_frame_based(log_path: str) -> Tuple[List[Dict[str, Any]], Lis
     current_slot_timing: Optional[Dict[str, Any]] = None
     current_slot_timing_key: Optional[Tuple[int, int, int]] = None
     active_slot_timings: Dict[Tuple[int, int, int], Dict[str, Any]] = {}
+    emitted_slot_timing_ids: set[int] = set()
     next_slot_timing_id = 0
+    frame_wrap_count = 0
+    last_slot_anchor_frame: Optional[int] = None
 
     def flush_slot_timing() -> None:
         nonlocal current_slot_timing, current_slot_timing_key
-        if current_slot_timing is not None and current_slot_timing not in slot_timing_rows:
-            slot_timing_rows.append(current_slot_timing)
+        if current_slot_timing is not None:
+            timing_id = current_slot_timing.get("timing_id")
+            if timing_id is not None and timing_id not in emitted_slot_timing_ids:
+                slot_timing_rows.append(current_slot_timing)
+                emitted_slot_timing_ids.add(timing_id)
         if current_slot_timing_key is not None:
             active_slot_timings.pop(current_slot_timing_key, None)
         current_slot_timing = None
@@ -252,11 +261,33 @@ def extract_strict_frame_based(log_path: str) -> Tuple[List[Dict[str, Any]], Lis
     def flush_all_slot_timings() -> None:
         nonlocal current_slot_timing, current_slot_timing_key
         for timing_row in list(active_slot_timings.values()):
-            if timing_row not in slot_timing_rows:
+            timing_id = timing_row.get("timing_id")
+            if timing_id is not None and timing_id not in emitted_slot_timing_ids:
                 slot_timing_rows.append(timing_row)
+                emitted_slot_timing_ids.add(timing_id)
         active_slot_timings.clear()
         current_slot_timing = None
         current_slot_timing_key = None
+
+    def abs_frame_for_slot(frame: int, slot: int) -> int:
+        if current_abs_frame is not None and current_frame == frame:
+            return current_abs_frame
+        base = frame_wrap_count * FRAME_MODULO + frame
+        if current_abs_frame is not None:
+            cur_mod_slot = (current_frame or 0) * SLOT_MODULO + (current_slot or 0)
+            row_mod_slot = frame * SLOT_MODULO + slot
+            if row_mod_slot - cur_mod_slot > (FRAME_MODULO * SLOT_MODULO) // 2:
+                base -= FRAME_MODULO
+            elif cur_mod_slot - row_mod_slot > (FRAME_MODULO * SLOT_MODULO) // 2:
+                base += FRAME_MODULO
+        return base
+
+    def scheduled_abs_from_source(source_abs_slot: int, sched_frame: int, sched_slot: int) -> Tuple[int, int]:
+        source_mod_slot = source_abs_slot % (FRAME_MODULO * SLOT_MODULO)
+        sched_mod_slot = sched_frame * SLOT_MODULO + sched_slot
+        delta = (sched_mod_slot - source_mod_slot) % (FRAME_MODULO * SLOT_MODULO)
+        sched_abs_slot = source_abs_slot + delta
+        return sched_abs_slot // SLOT_MODULO, sched_abs_slot
 
     def record_slot_timing(frame: int, slot: int, name: str, cost_us: float, extra: Optional[Dict[str, Any]] = None) -> None:
         nonlocal current_slot_timing, current_slot_timing_key, next_slot_timing_id
@@ -271,10 +302,13 @@ def extract_strict_frame_based(log_path: str) -> Tuple[List[Dict[str, Any]], Lis
         key = (frame, slot, segment_id)
         current_slot_timing = active_slot_timings.get(key)
         if current_slot_timing is None:
+            abs_frame = abs_frame_for_slot(frame, slot)
             current_slot_timing = row_with_workload({
                 "timing_id": next_slot_timing_id,
                 "frame": frame,
                 "slot": slot,
+                "abs_frame": abs_frame,
+                "abs_slot": abs_frame * SLOT_MODULO + slot,
             }, current_workload)
             next_slot_timing_id += 1
             active_slot_timings[key] = current_slot_timing
@@ -376,8 +410,12 @@ def extract_strict_frame_based(log_path: str) -> Tuple[List[Dict[str, Any]], Lis
             if m:
                 slot_frame = int(m.group(1))
                 slot_id = int(m.group(2))
+                if last_slot_anchor_frame is not None and slot_frame < last_slot_anchor_frame and (last_slot_anchor_frame - slot_frame) > (FRAME_MODULO // 2):
+                    frame_wrap_count += 1
+                last_slot_anchor_frame = slot_frame
                 current_frame = slot_frame
                 current_slot = slot_id
+                current_abs_frame = frame_wrap_count * FRAME_MODULO + slot_frame
                 reset_slot_state()
                 continue
 
@@ -491,6 +529,11 @@ def extract_strict_frame_based(log_path: str) -> Tuple[List[Dict[str, Any]], Lis
             if m_pusch:
                 sched_frame = int(m_pusch.group(1))
                 sched_slot = int(m_pusch.group(2))
+                if current_frame is None or current_slot is None or current_abs_frame is None:
+                    raise RuntimeError(
+                        f"Sched line at {sched_frame}.{sched_slot} missing source slot anchor "
+                        f"(line {line_no}):\n  {line.strip()}"
+                    )
                 sched_rnti = extract_rnti_from_line(line)
                 if not sched_rnti:
                     raise RuntimeError(
@@ -498,8 +541,23 @@ def extract_strict_frame_based(log_path: str) -> Tuple[List[Dict[str, Any]], Lis
                         f"(line {line_no}):\n  {line.strip()}"
                     )
                 key = (sched_frame, sched_slot, sched_rnti)
+                source_abs_slot = current_abs_frame * SLOT_MODULO + current_slot
+                scheduled_ul_abs_frame, scheduled_ul_abs_slot = scheduled_abs_from_source(
+                    source_abs_slot,
+                    sched_frame,
+                    sched_slot,
+                )
                 frames[key]["sched"].append({
                     "type": "PUSCH",
+                    "source_frame": current_frame,
+                    "source_slot": current_slot,
+                    "source_abs_frame": current_abs_frame,
+                    "source_abs_slot": source_abs_slot,
+                    "source_line_no": line_no,
+                    "scheduled_ul_frame": sched_frame,
+                    "scheduled_ul_slot": sched_slot,
+                    "scheduled_ul_abs_frame": scheduled_ul_abs_frame,
+                    "scheduled_ul_abs_slot": scheduled_ul_abs_slot,
                     "nb_symbol": parse_int(RE_NB_SYMBOL, line),
                     "nb_rb": parse_int(RE_RBS, line),
                     "TBS": parse_int(RE_TBS, line),
@@ -517,6 +575,11 @@ def extract_strict_frame_based(log_path: str) -> Tuple[List[Dict[str, Any]], Lis
             if m_msg3:
                 frame = int(m_msg3.group(1))
                 slot = int(m_msg3.group(2))
+                if current_frame is None or current_slot is None or current_abs_frame is None:
+                    raise RuntimeError(
+                        f"Msg3 sched at {frame}.{slot} missing source slot anchor "
+                        f"(line {line_no}):\n  {line.strip()}"
+                    )
                 msg3_rnti = extract_rnti_from_line(line)
                 if not msg3_rnti:
                     raise RuntimeError(
@@ -524,8 +587,23 @@ def extract_strict_frame_based(log_path: str) -> Tuple[List[Dict[str, Any]], Lis
                         f"(line {line_no}):\n  {line.strip()}"
                     )
                 key_msg3 = (frame, slot, msg3_rnti)
+                source_abs_slot = current_abs_frame * SLOT_MODULO + current_slot
+                scheduled_ul_abs_frame, scheduled_ul_abs_slot = scheduled_abs_from_source(
+                    source_abs_slot,
+                    frame,
+                    slot,
+                )
                 frames[key_msg3]["sched"].append({
                     "type": "MSG3",
+                    "source_frame": current_frame,
+                    "source_slot": current_slot,
+                    "source_abs_frame": current_abs_frame,
+                    "source_abs_slot": source_abs_slot,
+                    "source_line_no": line_no,
+                    "scheduled_ul_frame": frame,
+                    "scheduled_ul_slot": slot,
+                    "scheduled_ul_abs_frame": scheduled_ul_abs_frame,
+                    "scheduled_ul_abs_slot": scheduled_ul_abs_slot,
                     "nb_symbol": None,
                     "nb_rb": None,
                     "TBS": None,
@@ -543,6 +621,11 @@ def extract_strict_frame_based(log_path: str) -> Tuple[List[Dict[str, Any]], Lis
             if m_msg3_retx:
                 frame = int(m_msg3_retx.group(1))
                 slot = int(m_msg3_retx.group(2))
+                if current_frame is None or current_slot is None or current_abs_frame is None:
+                    raise RuntimeError(
+                        f"Msg3 retx sched at {frame}.{slot} missing source slot anchor "
+                        f"(line {line_no}):\n  {line.strip()}"
+                    )
                 msg3_rnti = extract_rnti_from_line(line)
                 if not msg3_rnti:
                     raise RuntimeError(
@@ -550,8 +633,23 @@ def extract_strict_frame_based(log_path: str) -> Tuple[List[Dict[str, Any]], Lis
                         f"(line {line_no}):\n  {line.strip()}"
                     )
                 key_msg3 = (frame, slot, msg3_rnti)
+                source_abs_slot = current_abs_frame * SLOT_MODULO + current_slot
+                scheduled_ul_abs_frame, scheduled_ul_abs_slot = scheduled_abs_from_source(
+                    source_abs_slot,
+                    frame,
+                    slot,
+                )
                 frames[key_msg3]["sched"].append({
                     "type": "MSG3_RETX",
+                    "source_frame": current_frame,
+                    "source_slot": current_slot,
+                    "source_abs_frame": current_abs_frame,
+                    "source_abs_slot": source_abs_slot,
+                    "source_line_no": line_no,
+                    "scheduled_ul_frame": frame,
+                    "scheduled_ul_slot": slot,
+                    "scheduled_ul_abs_frame": scheduled_ul_abs_frame,
+                    "scheduled_ul_abs_slot": scheduled_ul_abs_slot,
                     "nb_symbol": None,
                     "nb_rb": None,
                     "TBS": None,
@@ -752,6 +850,15 @@ def extract_strict_frame_based(log_path: str) -> Tuple[List[Dict[str, Any]], Lis
                 row = {
                     "frame": current_decoding["frame"],
                     "slot": current_decoding["slot"],
+                    "source_frame": sched.get("source_frame"),
+                    "source_slot": sched.get("source_slot"),
+                    "source_abs_frame": sched.get("source_abs_frame"),
+                    "source_abs_slot": sched.get("source_abs_slot"),
+                    "source_line_no": sched.get("source_line_no"),
+                    "scheduled_ul_frame": sched.get("scheduled_ul_frame"),
+                    "scheduled_ul_slot": sched.get("scheduled_ul_slot"),
+                    "scheduled_ul_abs_frame": sched.get("scheduled_ul_abs_frame"),
+                    "scheduled_ul_abs_slot": sched.get("scheduled_ul_abs_slot"),
                     "sched_type": sched["type"],
                     "rnti": fmt_rnti(sched.get("rnti")),
                     "nb_symbol": sched["nb_symbol"],
@@ -826,6 +933,15 @@ def extract_strict_frame_based(log_path: str) -> Tuple[List[Dict[str, Any]], Lis
                 row = {
                     "frame": frame,
                     "slot": slot,
+                    "source_frame": sched.get("source_frame"),
+                    "source_slot": sched.get("source_slot"),
+                    "source_abs_frame": sched.get("source_abs_frame"),
+                    "source_abs_slot": sched.get("source_abs_slot"),
+                    "source_line_no": sched.get("source_line_no"),
+                    "scheduled_ul_frame": sched.get("scheduled_ul_frame"),
+                    "scheduled_ul_slot": sched.get("scheduled_ul_slot"),
+                    "scheduled_ul_abs_frame": sched.get("scheduled_ul_abs_frame"),
+                    "scheduled_ul_abs_slot": sched.get("scheduled_ul_abs_slot"),
                     "sched_type": sched["type"],
                     "rnti": fmt_rnti(sched.get("rnti")),
                     "nb_symbol": sched["nb_symbol"],
