@@ -368,6 +368,14 @@ void nr_feptx_tp(RU_t *ru, int frame_tx, int slot)
       pushTpool(ru->threadPool, t);
       nbfeptx++;
     }
+    // LOG_W(NR_PHY,
+    //   "[ru_fep] %d.%d: ru_rx_fft_task_work_sum costs %.2f us (%lu tasks, nb_tx %d, ofdm_symbol_size %d)\n",
+    //   ru->proc.frame_rx,
+    //   ru->proc.tti_rx,
+    //   fft_task_us,
+    //   fft_task_count,
+    //   ru->nb_tx,
+    //   ru->nr_frame_parms->ofdm_symbol_size);
   }
   join_task_ans(&ans);
 
@@ -390,7 +398,7 @@ void nr_fep(void* arg)
   int endSymbol    = feprx_cmd->endSymbol;
   NR_DL_FRAME_PARMS *fp = ru->nr_frame_parms;
   
-  LOG_D(PHY,"aid %d, frame %d slot %d, startSymbol %d, endSymbol %d\n", aid, ru->proc.frame_rx, tti_rx, startSymbol, endSymbol);
+  LOG_W(PHY,"aid %d, frame %d slot %d, startSymbol %d, endSymbol %d\n", aid, ru->proc.frame_rx, tti_rx, startSymbol, endSymbol);
 
   VCD_SIGNAL_DUMPER_DUMP_FUNCTION_BY_NAME(VCD_SIGNAL_DUMPER_FUNCTIONS_PHY_PROCEDURES_RU_FEPRX+aid, 1);
 
@@ -405,6 +413,7 @@ void nr_fep(void* arg)
   VCD_SIGNAL_DUMPER_DUMP_FUNCTION_BY_NAME(VCD_SIGNAL_DUMPER_FUNCTIONS_PHY_PROCEDURES_RU_FEPRX+aid, 0);
 
   stop_meas(&task_time);
+  LOG_W(PHY,"fft task time = %.2f\n",get_time_meas_us(&task_time));
   add_ru_fft_work_cycles(feprx_cmd->fft_task_cycles, feprx_cmd->fft_task_count, &task_time);
 
   // Task completed in //
