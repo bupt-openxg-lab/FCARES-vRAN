@@ -259,8 +259,27 @@ static void reception_actions(nr_rlc_entity_am_t *entity, nr_rlc_pdu_t *pdu)
 {
   int x = pdu->sn;
 
-  if (sn_compare_rx(entity, x, entity->rx_next_highest) >= 0)
+  if (sn_compare_rx(entity, x, entity->rx_next_highest) >= 0) {
+    /* DIAG (RLC-AM phantom SN): a received PDU whose SN sits implausibly far
+     * ahead of rx_next is the tell-tale of an undetected decode error / CRC
+     * false positive carrying a bogus SN. Reception only gates on the (huge)
+     * receive window, so such a PDU is accepted here and drags
+     * rx_next_highest -- and therefore the STATUS ACK_SN -- past the peer's
+     * tx_next. The peer must then reject every STATUS, which permanently
+     * stalls the AM entity (-> max RETX -> RLF). Flag it at injection time.
+     * The threshold is heuristic: normal reordering/retx keeps an in-window
+     * SN within at most a few hundred of rx_next, so window_size/32 clears
+     * healthy traffic while catching the multi-thousand jump of a phantom. */
+    int sn_ahead = modulus_rx(entity, x);
+    if (sn_ahead > entity->window_size / 32)
+      LOG_W(RLC,
+            "[RLC-AM phantom?] recv SN %d is %d ahead of rx_next %d "
+            "(window %d): rx_next_highest %d -> %d, t=%llu ms\n",
+            x, sn_ahead, entity->rx_next, entity->window_size,
+            entity->rx_next_highest, (x + 1) % entity->sn_modulus,
+            (unsigned long long)entity->t_current);
     entity->rx_next_highest = (x + 1) % entity->sn_modulus;
+  }
 
   /* todo: room for optimization: we can run through rx_list only once */
   if (sdu_full(entity, x)) {
@@ -1410,6 +1429,22 @@ static int generate_status(nr_rlc_entity_am_t *entity, char *buffer, int size)
 
   /* put ack_sn, which is last_nack + 1 */
   ack_sn = (last_nack + 1) % entity->sn_modulus;
+
+  /* DIAG (RLC-AM phantom SN): if the ACK_SN we are about to transmit is
+   * implausibly far ahead of rx_next, our receive state has been poisoned by
+   * a bogus high SN (see reception_actions). This STATUS will be rejected by
+   * the peer (ack_sn > tx_next), freezing its tx window. Log the value going
+   * out so it can be matched against the peer's "ack_sn not valid" line. */
+  {
+    int ack_ahead = modulus_rx(entity, ack_sn);
+    if (ack_ahead > entity->window_size / 32)
+      LOG_W(RLC,
+            "[RLC-AM phantom?] sending STATUS ack_sn %d is %d ahead of "
+            "rx_next %d (rx_next_highest %d), t=%llu ms -- peer will reject\n",
+            ack_sn, ack_ahead, entity->rx_next, entity->rx_next_highest,
+            (unsigned long long)entity->t_current);
+  }
+
   if (entity->sn_field_length == 12) {
     buffer[0] = ack_sn >> 8;
     buffer[1] = ack_sn & 255;
