@@ -49,10 +49,12 @@
 #include <stdint.h>
 #include <time.h>
 
-static inline void add_ru_fft_work_cycles(uint64_t *fft_task_cycles, uint64_t *fft_task_count, const time_stats_t *work_time)
+static inline void add_ru_task_work_cycles(uint64_t *task_cycles, uint64_t *task_count, const time_stats_t *work_time)
 {
-  __atomic_fetch_add(fft_task_cycles, work_time->p_time, __ATOMIC_RELAXED);
-  __atomic_fetch_add(fft_task_count, 1, __ATOMIC_RELAXED);
+  if (task_cycles == NULL || task_count == NULL)
+    return;
+  __atomic_fetch_add(task_cycles, work_time->p_time, __ATOMIC_RELAXED);
+  __atomic_fetch_add(task_count, 1, __ATOMIC_RELAXED);
 }
 
 static shm_state_t *ru_fep_co_workload_shm;
@@ -268,6 +270,9 @@ void nr_feptx_prec(RU_t *ru, int frame_tx, int tti_tx)
 // core routine for FEP TX, called from threads in RU TX thread-pool 
 void nr_feptx(void *arg)
 {
+  time_stats_t task_time = {0};
+  start_meas(&task_time);
+
   feptx_cmd_t *feptx = (feptx_cmd_t *)arg;
 
   RU_t *ru = feptx->ru;
@@ -321,6 +326,8 @@ void nr_feptx(void *arg)
   nr_feptx0(ru, slot, startSymbol, numSymbols, aa);
 
   // Task completed in //
+  stop_meas(&task_time);
+  add_ru_task_work_cycles(feptx->feptx_task_cycles, feptx->feptx_task_count, &task_time);
   completed_task_ans(feptx->ans);
 }
 
@@ -338,6 +345,8 @@ void nr_feptx_tp(RU_t *ru, int frame_tx, int slot)
   feptx_cmd_t arr[sz];
   task_ans_t ans;
   init_task_ans(&ans, sz);
+  uint64_t feptx_task_cycles = 0;
+  uint64_t feptx_task_count = 0;
 
   int nbfeptx = 0;
   for (int aid = 0; aid < ru->nb_tx; aid++) {
@@ -350,6 +359,8 @@ void nr_feptx_tp(RU_t *ru, int frame_tx, int slot)
     feptx_cmd->startSymbol = 0;
     feptx_cmd->numSymbols =
         (ru->half_slot_parallelization > 0) ? ru->nr_frame_parms->symbols_per_slot >> 1 : ru->nr_frame_parms->symbols_per_slot;
+    feptx_cmd->feptx_task_cycles = &feptx_task_cycles;
+    feptx_cmd->feptx_task_count = &feptx_task_count;
 
     task_t t = {.func = nr_feptx, .args = feptx_cmd};
     pushTpool(ru->threadPool, t);
@@ -363,6 +374,8 @@ void nr_feptx_tp(RU_t *ru, int frame_tx, int slot)
       feptx_cmd->slot = slot;
       feptx_cmd->startSymbol = ru->nr_frame_parms->symbols_per_slot >> 1;
       feptx_cmd->numSymbols = ru->nr_frame_parms->symbols_per_slot >> 1;
+      feptx_cmd->feptx_task_cycles = &feptx_task_cycles;
+      feptx_cmd->feptx_task_count = &feptx_task_count;
 
       task_t t = {.func = nr_feptx, .args = feptx_cmd};
       pushTpool(ru->threadPool, t);
@@ -378,6 +391,17 @@ void nr_feptx_tp(RU_t *ru, int frame_tx, int slot)
     //   ru->nr_frame_parms->ofdm_symbol_size);
   }
   join_task_ans(&ans);
+
+  static double cpu_freq_GHz = 0.0;
+  if (cpu_freq_GHz == 0.0)
+    cpu_freq_GHz = get_cpu_freq_GHz();
+  const double feptx_task_us = feptx_task_cycles / cpu_freq_GHz / 1000.0;
+  LOG_W(NR_PHY,
+        "[nr_feptx_tp] %d.%d: nr_feptx_task_work_sum costs %.2f us (%lu tasks)\n",
+        frame_tx,
+        slot,
+        feptx_task_us,
+        feptx_task_count);
 
   stop_meas(&ru->ofdm_total_stats);
   if (ru->idx == 0)
@@ -413,8 +437,9 @@ void nr_fep(void* arg)
   VCD_SIGNAL_DUMPER_DUMP_FUNCTION_BY_NAME(VCD_SIGNAL_DUMPER_FUNCTIONS_PHY_PROCEDURES_RU_FEPRX+aid, 0);
 
   stop_meas(&task_time);
-  LOG_W(PHY,"fft task time = %.2f\n",get_time_meas_us(&task_time));
-  add_ru_fft_work_cycles(feprx_cmd->fft_task_cycles, feprx_cmd->fft_task_count, &task_time);
+  /* HCS: 每-FFT-task 调试行降为 LOG_D (恢复: PHY 日志级别设 debug) */
+  LOG_D(PHY,"fft task time = %.2f\n",get_time_meas_us(&task_time));
+  add_ru_task_work_cycles(feprx_cmd->fft_task_cycles, feprx_cmd->fft_task_count, &task_time);
 
   // Task completed in //
   completed_task_ans(feprx_cmd->ans);

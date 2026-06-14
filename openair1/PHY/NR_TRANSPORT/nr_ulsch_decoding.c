@@ -289,6 +289,7 @@ int nr_ulsch_decoding(PHY_VARS_gNB *phy_vars_gNB,
   int ret_decoder = phy_vars_gNB->nrLDPC_coding_interface.nrLDPC_coding_decoder(&slot_parameters);
 
   // post decode
+  uint64_t hcs_decode_work_cycles = 0;   /* HCS: 各 CB LDPC decode work-sum (cycles) */
   for (uint8_t pusch_id = 0; pusch_id < nb_pusch; pusch_id++) {
     uint8_t ULSCH_id = ULSCH_ids[pusch_id];
     NR_gNB_ULSCH_t *ulsch = &phy_vars_gNB->ulsch[ULSCH_id];
@@ -299,6 +300,7 @@ int nr_ulsch_decoding(PHY_VARS_gNB *phy_vars_gNB,
     uint32_t offset = 0;
     for (int r = 0; r < TB_parameters.C; r++) {
       nrLDPC_segment_decoding_parameters_t nrLDPC_segment_decoding_parameters = TB_parameters.segments[r];
+      hcs_decode_work_cycles += nrLDPC_segment_decoding_parameters.ts_ldpc_decode.p_time;   /* HCS: 累计 per-CB decode work */
       // Copy c to b in case of decoding success
       if (nrLDPC_segment_decoding_parameters.decodeSuccess) {
         memcpy(harq_process->b + offset,
@@ -310,6 +312,14 @@ int nr_ulsch_decoding(PHY_VARS_gNB *phy_vars_gNB,
       }
       offset += ((harq_process->K >> 3) - (harq_process->F >> 3) - ((harq_process->C > 1) ? 3 : 0));
     }
+  }
+
+  /* HCS: 暴露本 slot decode work-sum (µs) 给 phy_procedures 喂 backlog (work-sum 口径, 非并行墙钟) */
+  {
+    static double hcs_cpu_freq_GHz = 0.0;
+    if (hcs_cpu_freq_GHz == 0.0)
+      hcs_cpu_freq_GHz = get_cpu_freq_GHz();
+    phy_vars_gNB->hcs_decode_work_us = (double)hcs_decode_work_cycles / hcs_cpu_freq_GHz / 1000.0;
   }
 
   return ret_decoder;

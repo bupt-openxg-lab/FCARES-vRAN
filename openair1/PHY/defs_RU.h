@@ -188,6 +188,8 @@ typedef struct {
  int startSymbol;
  int numSymbols;
  task_ans_t *ans;
+ uint64_t *feptx_task_cycles;
+ uint64_t *feptx_task_count;
 } feptx_cmd_t;
 
 typedef struct {

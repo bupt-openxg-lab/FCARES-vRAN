@@ -47,10 +47,23 @@
 typedef struct ldpc8blocks_args_s {
   nrLDPC_TB_encoding_parameters_t *nrLDPC_TB_encoding_parameters;
   encoder_implemparams_t impp;
+  uint64_t *ldpc8blocks_task_cycles;
+  uint64_t *ldpc8blocks_task_count;
 } ldpc8blocks_args_t;
+
+static inline void add_ldpc8blocks_task_work_cycles(uint64_t *task_cycles, uint64_t *task_count, const time_stats_t *work_time)
+{
+  if (task_cycles == NULL || task_count == NULL)
+    return;
+  __atomic_fetch_add(task_cycles, work_time->p_time, __ATOMIC_RELAXED);
+  __atomic_fetch_add(task_count, 1, __ATOMIC_RELAXED);
+}
 
 static void ldpc8blocks(void *p)
 {
+  time_stats_t task_time = {0};
+  start_meas(&task_time);
+
   ldpc8blocks_args_t *args = (ldpc8blocks_args_t *)p;
   nrLDPC_TB_encoding_parameters_t *nrLDPC_TB_encoding_parameters = args->nrLDPC_TB_encoding_parameters;
   encoder_implemparams_t *impp = &args->impp;
@@ -157,12 +170,16 @@ static void ldpc8blocks(void *p)
   }
 
   // Task running in // completed
+  stop_meas(&task_time);
+  add_ldpc8blocks_task_work_cycles(args->ldpc8blocks_task_cycles, args->ldpc8blocks_task_count, &task_time);
   completed_task_ans(impp->ans);
 }
 
 static int nrLDPC_prepare_TB_encoding(nrLDPC_slot_encoding_parameters_t *nrLDPC_slot_encoding_parameters,
                                       int dlsch_id,
-                                      thread_info_tm_t *t_info)
+                                      thread_info_tm_t *t_info,
+                                      uint64_t *ldpc8blocks_task_cycles,
+                                      uint64_t *ldpc8blocks_task_count)
 {
   nrLDPC_TB_encoding_parameters_t *nrLDPC_TB_encoding_parameters = &nrLDPC_slot_encoding_parameters->TBs[dlsch_id];
 
@@ -191,6 +208,8 @@ static int nrLDPC_prepare_TB_encoding(nrLDPC_slot_encoding_parameters_t *nrLDPC_
     impp.macro_num = j;
     perJobImpp->impp = impp;
     perJobImpp->nrLDPC_TB_encoding_parameters = nrLDPC_TB_encoding_parameters;
+    perJobImpp->ldpc8blocks_task_cycles = ldpc8blocks_task_cycles;
+    perJobImpp->ldpc8blocks_task_count = ldpc8blocks_task_count;
 
     task_t t = {.func = ldpc8blocks, .args = perJobImpp};
     pushTpool(nrLDPC_slot_encoding_parameters->threadPool, t);
@@ -210,16 +229,33 @@ int nrLDPC_coding_encoder(nrLDPC_slot_encoding_parameters_t *nrLDPC_slot_encodin
   task_ans_t ans;
   init_task_ans(&ans, nbTasks);
   thread_info_tm_t t_info = {.buf = (uint8_t *)arr, .len = 0, .cap = nbTasks, .ans = &ans};
+  uint64_t ldpc8blocks_task_cycles = 0;
+  uint64_t ldpc8blocks_task_count = 0;
 
   int nbEncode = 0;
   for (int dlsch_id = 0; dlsch_id < nrLDPC_slot_encoding_parameters->nb_TBs; dlsch_id++) {
-    nbEncode += nrLDPC_prepare_TB_encoding(nrLDPC_slot_encoding_parameters, dlsch_id, &t_info);
+    nbEncode += nrLDPC_prepare_TB_encoding(nrLDPC_slot_encoding_parameters,
+                                           dlsch_id,
+                                           &t_info,
+                                           &ldpc8blocks_task_cycles,
+                                           &ldpc8blocks_task_count);
   }
   if (nbEncode < nbTasks) {
     completed_many_task_ans(&ans, nbTasks - nbEncode);
   }
   // Execute thread pool tasks
   join_task_ans(&ans);
+
+  static double cpu_freq_GHz = 0.0;
+  if (cpu_freq_GHz == 0.0)
+    cpu_freq_GHz = get_cpu_freq_GHz();
+  const double ldpc8blocks_task_us = ldpc8blocks_task_cycles / cpu_freq_GHz / 1000.0;
+  LOG_W(NR_PHY,
+        "[nrLDPC_coding_encoder] %d.%d: ldpc8blocks_task_work_sum costs %.2f us (%lu tasks)\n",
+        nrLDPC_slot_encoding_parameters->frame,
+        nrLDPC_slot_encoding_parameters->slot,
+        ldpc8blocks_task_us,
+        ldpc8blocks_task_count);
 
   return 0;
 }
