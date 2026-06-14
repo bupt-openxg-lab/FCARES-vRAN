@@ -490,6 +490,15 @@ static int nr_ue_process_dci_ul_00(NR_UE_MAC_INST_t *mac,
     return -1;
   }
 
+  /* [ue_ulgrant] UE successfully decoded a UL grant and scheduled PUSCH for
+   * frame_tx.slot_tx. Cross-reference with the gNB log "PUSCH (RNTI x) not
+   * detected in F.S": a not_detected at F.S that HAS a matching line here means
+   * the UE DID transmit -> gNB decode/sampling miss = compute-timeout candidate
+   * (what threshold-D should explain); a not_detected with NO match here means
+   * the UE never received the grant and never transmitted = NOT compute-timeout. */
+  LOG_W(NR_MAC, "[ue_ulgrant] %d.%d rnti=%04x (DCI0_0 rx@%d.%d)\n",
+        frame_tx, slot_tx, dci_ind->rnti, frame, slot);
+
   fapi_nr_ul_config_request_pdu_t *pdu = lockGet_ul_config(mac, frame_tx, slot_tx, FAPI_NR_UL_CONFIG_TYPE_PUSCH);
   if (!pdu)
     return -1;
@@ -587,6 +596,12 @@ static int nr_ue_process_dci_ul_01(NR_UE_MAC_INST_t *mac,
     LOG_E(MAC, "Cannot schedule PUSCH\n");
     return -1;
   }
+
+  /* [ue_ulgrant] see nr_ue_process_dci_ul_00: cross-reference frame_tx.slot_tx with
+   * the gNB "PUSCH (RNTI x) not detected in F.S" to tell a gNB compute/sampling miss
+   * (UE did transmit, line present) from a UE-silent grant loss (no line). */
+  LOG_W(NR_MAC, "[ue_ulgrant] %d.%d rnti=%04x (DCI0_1 rx@%d.%d)\n",
+        frame_tx, slot_tx, dci_ind->rnti, frame, slot);
 
   fapi_nr_ul_config_request_pdu_t *pdu = lockGet_ul_config(mac, frame_tx, slot_tx, FAPI_NR_UL_CONFIG_TYPE_PUSCH);
   if (!pdu)

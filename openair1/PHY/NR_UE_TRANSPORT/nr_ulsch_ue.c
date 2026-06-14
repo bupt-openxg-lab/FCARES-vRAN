@@ -547,6 +547,8 @@ void nr_ue_ulsch_procedures(PHY_VARS_NR_UE *UE,
   }
 
   LOG_D(PHY, "nr_ue_ulsch_procedures_slot hard_id %d %d.%d\n", harq_pid, frame, slot);
+  LOG_W(PHY, "[UE TX] %d.%d: harq_pid=%d, tb_size=%u bytes, C=%u\n",
+        frame, slot, harq_pid, tb_size, harq_process_ul_ue->C);
 
   int l_prime[2];
 
