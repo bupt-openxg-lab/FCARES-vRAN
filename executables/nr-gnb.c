@@ -371,7 +371,7 @@ void init_gNB_Tpool(int inst)
   // create the RX thread responsible for RX processing start event (resp_L1 msg queue), then launch rx_func()
   threadCreate(&gNB->L1_rx_thread, L1_rx_thread, (void *)gNB, "L1_rx_thread", gNB->L1_rx_thread_core, OAI_PRIORITY_RT_MAX);
   // create the TX thread responsible for TX processing start event (L1_tx_out msg queue), then launch tx_func()
-  threadCreate(&gNB->L1_tx_thread, L1_tx_thread, (void *)gNB, "L1_tx_thread",8, OAI_PRIORITY_RT_MAX);
+  threadCreate(&gNB->L1_tx_thread, L1_tx_thread, (void *)gNB, "L1_tx_thread",10, OAI_PRIORITY_RT_MAX);
 
   notifiedFIFO_elt_t *msgL1Tx = newNotifiedFIFO_elt(sizeof(processingData_L1tx_t), 0, &gNB->L1_tx_out, NULL);
   processingData_L1tx_t *msgDataTx = (processingData_L1tx_t *)NotifiedFifoData(msgL1Tx);
