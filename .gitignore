@@ -8,6 +8,21 @@ cmake_targets/ran_build/
 cmake_targets/nas_sim_tools/build/
 log/
 lte_build_oai/
+codex_rescue
+
+# machine-local experiment config (host paths / core pinning / sweep knobs,
+# edited every run -- keep working copy but stop tracking)
+/gnb.sa.band78.fr1.273PRB.oxgrf.conf
+/cmake_targets/run_gNB.sh
+
+# large local-only run artifacts and datasets (do not commit)
+/python_scripts_bak/
+/debug/
+/.debug/
+/cmake_targets/.debug/
+/thesis/
+/python_scripts/toy_experiment/
+/python_scripts/integration/
 
 # IDE files
 .vscode
