@@ -33,6 +33,7 @@
 #include "common/utils/assertions.h"
 #include "common/utils/system.h"
 #include "common/ran_context.h"
+#include "cw_stall_probe.h"
 
 #include "radio/COMMON/common_lib.h"
 #include "radio/ETHERNET/ethernet_lib.h"
@@ -624,6 +625,8 @@ static void rx_rf(RU_t *ru, int *frame, int *slot)
 
   VCD_SIGNAL_DUMPER_DUMP_FUNCTION_BY_NAME( VCD_SIGNAL_DUMPER_FUNCTIONS_TRX_READ, 0 );
   proc->timestamp_rx = ts-ru->ts_offset;
+  /* capture raw hardware diff before any ts_offset correction */
+  int64_t raw_sample_diff = proc->timestamp_rx - old_ts;
 
   //AssertFatal(rxs == fp->samples_per_subframe,
   //"rx_rf: Asked for %d samples, got %d from USRP\n",fp->samples_per_subframe,rxs);
@@ -652,6 +655,21 @@ static void rx_rf(RU_t *ru, int *frame, int *slot)
   // in fact the following line is the same as long as the timestamp_rx is synchronized to GPS. 
   proc->frame_rx    = (proc->timestamp_rx / (fp->samples_per_subframe*10))&1023;
   proc->tti_rx = fp->get_slot_from_timestamp(proc->timestamp_rx,fp);
+  if (proc->first_rx != 1) {
+    /* hack: print on every ts_offset change, otherwise throttle to 1/100 slots */
+    static int64_t prev_ts_offset = 0;
+    static uint32_t rx_rf_log_cnt = 0;
+    bool ts_offset_changed = (ru->ts_offset != prev_ts_offset);
+    if (ts_offset_changed || (rx_rf_log_cnt % 100) == 0) {
+      double interval_us  = (double)raw_sample_diff * 1e6 / cfg->sample_rate;
+      double ts_offset_us = (double)ru->ts_offset    * 1e6 / cfg->sample_rate;
+      LOG_W(PHY, "[rx_rf] %d.%d raw_sample_diff=%" PRId64 " interval=%.2f us ts_offset=%" PRId64 "(%.2f us)%s\n",
+            proc->frame_rx, proc->tti_rx, raw_sample_diff, interval_us, ru->ts_offset, ts_offset_us,
+            ts_offset_changed ? " <-- ts_offset CHANGED" : "");
+    }
+    prev_ts_offset = ru->ts_offset;
+    rx_rf_log_cnt++;
+  }
   // synchronize first reception to frame 0 subframe 0
   LOG_D(PHY,"RU %d/%d TS %ld, GPS %f, SR %f, frame %d, slot %d.%d / %d\n",
         ru->idx,
@@ -1042,7 +1060,10 @@ void ru_tx_func(void *param)
   int print_frame = 8;
   char filename[40];
   start_meas(&tx_time);
-  LOG_W(NR_PHY,"[ru_tx_func] %d.%d: ru->feptx_ofdm AND ru->feptx_prec start\n",frame_tx, slot_tx);
+  /* HCS: RU TX 每-slot 标记/计时降为 LOG_D 削减 RT 日志 (恢复: NR_PHY 日志级别设 debug) */
+  LOG_D(NR_PHY,"[ru_tx_func] %d.%d: ru->feptx_ofdm AND ru->feptx_prec start\n",frame_tx, slot_tx);
+  /* --- dual-clock stall probe around TX OFDM modulation (RU thread) --- */
+  const cw_probe_t cw_feptx = cw_probe_begin();
   // do TX front-end processing if needed (precoding and/or IDFTs)
   if (ru->feptx_prec)
     ru->feptx_prec(ru,frame_tx,slot_tx);
@@ -1050,24 +1071,35 @@ void ru_tx_func(void *param)
   // do OFDM with/without TX front-end processing  if needed
   if ((ru->fh_north_asynch_in == NULL) && (ru->feptx_ofdm))
     ru->feptx_ofdm(ru, frame_tx, slot_tx);
+  cw_probe_end(cw_feptx, "feptx_ofdm", frame_tx, slot_tx);
   stop_meas(&tx_time);
-  
-  LOG_W(NR_PHY,"[ru_tx_func] %d.%d: ru->feptx_ofdm AND ru->feptx_prec costs %.2f us\n",frame_tx, slot_tx, get_time_meas_us(&tx_time));
+
+  LOG_D(NR_PHY,"[ru_tx_func] %d.%d: ru->feptx_ofdm AND ru->feptx_prec costs %.2f us\n",frame_tx, slot_tx, get_time_meas_us(&tx_time));
   if(!emulate_rf) {
     // do outgoing fronthaul (south) if needed
-    if ((ru->fh_north_asynch_in == NULL) && (ru->fh_south_out))
+    if ((ru->fh_north_asynch_in == NULL) && (ru->fh_south_out)) {
+      start_meas(&tx_time);
+      LOG_D(NR_PHY, "[ru_tx_func] %d.%d: ru->fh_south_out start\n", frame_tx, slot_tx);
+      /* --- dual-clock stall probe around the SDR TX write (fh_south_out) --- */
+      const cw_probe_t cw_fhsouth = cw_probe_begin();
       ru->fh_south_out(ru, frame_tx, slot_tx, info->timestamp_tx);
+      cw_probe_end(cw_fhsouth, "fh_south_out", frame_tx, slot_tx);
+      stop_meas(&tx_time);
+      LOG_D(NR_PHY, "[ru_tx_func] %d.%d: ru->fh_south_out end costs %.2f us\n", frame_tx, slot_tx, get_time_meas_us(&tx_time));
+    }
   // stop_meas(&last_tx_ts);
   // LOG_W(NR_PHY,"[ru_tx_func] %d.%d: tx interval = %.2f us\n",frame_tx, slot_tx, get_time_meas_us(&last_tx_ts));
   // start_meas(&last_tx_ts);
-  stop_meas(&tx_time);
-    LOG_W(NR_PHY,"[ru_tx_func] %d.%d: ru->fh_south_out costs %.2f us\n",frame_tx, slot_tx, get_time_meas_us(&tx_time));
 
-    if (ru->fh_north_out)
+    if (ru->fh_north_out) {
+      start_meas(&tx_time);
+      LOG_D(NR_PHY, "[ru_tx_func] %d.%d: ru->fh_north_out start\n", frame_tx, slot_tx);
+      const cw_probe_t cw_fhnorth = cw_probe_begin();
       ru->fh_north_out(ru);
-    
-    stop_meas(&tx_time);
-    LOG_W(NR_PHY,"[ru_tx_func] %d.%d: ru->fh_north_out costs %.2f us\n",frame_tx, slot_tx, get_time_meas_us(&tx_time));
+      cw_probe_end(cw_fhnorth, "fh_north_out", frame_tx, slot_tx);
+      stop_meas(&tx_time);
+      LOG_D(NR_PHY, "[ru_tx_func] %d.%d: ru->fh_north_out end costs %.2f us\n", frame_tx, slot_tx, get_time_meas_us(&tx_time));
+    }
   } else {
     if(frame_tx == print_frame) {
       for (int i=0; i<ru->nb_tx; i++) {
@@ -1105,8 +1137,8 @@ void ru_tx_func(void *param)
  *
  * Certain radios, e.g., RFsim, can run faster than real-time. This might
  * create problems, e.g., if RX and TX get too far from each other. This
- * function ensures that a maximum of 4 RX slots are processed at a time (and
- * not more than those four are started).
+ * function ensures that a maximum of RU_RX_SLOT_DEPTH RX slots are processed at a time (and
+ * not more than those are started).
  *
  * Through the queue L1_rx_out, we are informed about completed RX jobs.
  * rx_tti_busy keeps track of individual slots that have been started; this
@@ -1118,6 +1150,14 @@ void ru_tx_func(void *param)
  * @param frame_rx the frame to wait for
  * @param slot_rx the slot to wait for
  */
+static int rx_tti_free_slots(const bool rx_tti_busy[RU_RX_SLOT_DEPTH])
+{
+  int free = 0;
+  for (int i = 0; i < RU_RX_SLOT_DEPTH; i++)
+    free += !rx_tti_busy[i];
+  return free;
+}
+
 static bool wait_free_rx_tti(notifiedFIFO_t *L1_rx_out, bool rx_tti_busy[RU_RX_SLOT_DEPTH], int frame_rx, int slot_rx)
 {
   int idx = slot_rx % RU_RX_SLOT_DEPTH;
@@ -1133,6 +1173,9 @@ static bool wait_free_rx_tti(notifiedFIFO_t *L1_rx_out, bool rx_tti_busy[RU_RX_S
       processingData_L1_t *info = NotifiedFifoData(res);
       LOG_D(NR_PHY, "%d.%d Got access to RX slot %d.%d (%d)\n", frame_rx, slot_rx, info->frame_rx, info->slot_rx, idx);
       rx_tti_busy[info->slot_rx % RU_RX_SLOT_DEPTH] = false;
+      LOG_I(NR_PHY, "RX ring buf: released slot %d.%d (idx %d), free=%d/%d\n",
+            info->frame_rx, info->slot_rx, info->slot_rx % RU_RX_SLOT_DEPTH,
+            rx_tti_free_slots(rx_tti_busy), RU_RX_SLOT_DEPTH);
       if ((info->slot_rx % RU_RX_SLOT_DEPTH) == idx)
         not_done = false;
       delNotifiedFIFO_elt(res);
@@ -1140,6 +1183,9 @@ static bool wait_free_rx_tti(notifiedFIFO_t *L1_rx_out, bool rx_tti_busy[RU_RX_S
   }
   // set the tti to busy: the caller will process this slot now
   rx_tti_busy[idx] = true;
+  LOG_I(NR_PHY, "RX ring buf: acquired slot %d.%d (idx %d), free=%d/%d\n",
+        frame_rx, slot_rx, idx,
+        rx_tti_free_slots(rx_tti_busy), RU_RX_SLOT_DEPTH);
   return true;
 }
 
@@ -1271,6 +1317,15 @@ void *ru_thread(void *param)
 
     if (ru->fh_south_in) ru->fh_south_in(ru,&frame,&slot);
     else AssertFatal(1==0, "No fronthaul interface at south port");
+
+    struct timespec fh_now;
+    clock_gettime(CLOCK_MONOTONIC, &fh_now);
+    double fh_interval_us = (fh_now.tv_sec  - slot_start.tv_sec)  * 1e6
+                          + (fh_now.tv_nsec - slot_start.tv_nsec) * 1e-3;
+    /* HCS: 每-slot fh_south_in interval 降为 LOG_D (恢复: NR_PHY 日志级别设 debug) */
+    LOG_D(NR_PHY, "[ru_thread] %d.%d fh_south_in interval: %.2f us\n",
+          proc->frame_rx, proc->tti_rx, fh_interval_us);
+    slot_start = fh_now;
 
     if (initial_wait == 1 && proc->frame_rx < 300) {
       if (proc->frame_rx > 0 && ((proc->frame_rx % 100) == 0) && proc->tti_rx == 0) {
@@ -2002,4 +2057,3 @@ static void NRRCconfig_RU(configmodule_interface_t *cfg)
 
   return;
 }
-

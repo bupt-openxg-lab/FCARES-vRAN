@@ -30,6 +30,14 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <pthread.h>
+#include <sched.h>
+/* SCHED_IDLE is a Linux extension normally gated by _GNU_SOURCE, which this
+ * translation unit does not reliably get. It is a fixed kernel ABI value that
+ * the glibc wrapper passes straight through, so provide a fallback. */
+#ifndef SCHED_IDLE
+#define SCHED_IDLE 5
+#endif
 #include <string.h>
 #include <inttypes.h>
 #include <math.h>
@@ -37,6 +45,7 @@
 #include "rf_helper.h"
 #include "common/utils/LOG/log.h"
 #include "system.h"
+#include "executables/cw_stall_probe.h" /* -std=gnu11 implies _GNU_SOURCE: RUSAGE_THREAD/CLOCK_* available */
 
 /** @addtogroup _OXGRF_PHY_RF_INTERFACE_
  * @{
@@ -51,6 +60,11 @@ extern int oxgrf_tx_thread;
 //! Number of OXGRF devices
 int num_devices = 0;
 static bool running = false;
+
+/* off-path HW event monitor: polls RX overflow / TX timeout counters from a
+ * dedicated SCHED_IDLE thread (never on the per-slot RX/TX hot path). */
+static pthread_t      oxgrf_evt_mon_thread;
+static volatile bool  oxgrf_evt_mon_run = false;
 
 #define BUFFER_SIZE    (122880 * 100 * sizeof(int))
 #define NCHAN_PER_DEV  4
@@ -267,7 +281,10 @@ static int trx_oxgrf_write(openair0_device *device,openair0_timestamp timestamp,
             }
         }
 
+        /* --- probe the vendor PCIe write in isolation (synchronous mode on the RU thread) --- */
+        const cw_probe_t cw_vw = cw_probe_begin();
         status = oxgrf_write_samples_multiport(oxgrf->dev, (const void **)buff, nsamps, channel_to_mask(cc), timestamp, trx_flags);
+        cw_probe_end(cw_vw, "oxgrf_vendor_write", (int)((timestamp / (122880 * 10)) & 1023), (int)((timestamp / 61440) % 20));
         if (status < 0) {
             oxgrf->num_tx_errors++;
             LOG_E(HW, "[oxgrf] Failed to TX samples\n");
@@ -603,6 +620,60 @@ retry:
     return nsamps;
 }
 
+/*! \brief Off-path HW event monitor.
+ * Periodically (200 ms) reads the board's cumulative RX_CHANNEL_OVERFLOW /
+ * TX_CHANNEL_TIMEOUT / RX_CHANNEL_TIMEOUT counters and logs only on change,
+ * with a wall-clock stamp so events can be lined up against the [rx_rf]
+ * ts_offset log. Runs at SCHED_IDLE so it can never preempt the RT RX/TX
+ * threads. NOTE: oxgrf_get_channel_event() is a PCIe control transaction; if
+ * the vendor lib serializes it against the data DMA this can still perturb the
+ * stream. The 200 ms cadence keeps that risk low, but if you see link setup or
+ * the per-slot timing regress, raise the interval or drop this thread. */
+static void *oxgrf_event_monitor(void *arg)
+{
+    openair0_device *device = (openair0_device *)arg;
+    oxgrf_state_t   *oxgrf  = (oxgrf_state_t *)device->priv;
+
+    /* lowest scheduling class: only run when a core would otherwise idle */
+    struct sched_param sp = { .sched_priority = 0 };
+    if (pthread_setschedparam(pthread_self(), SCHED_IDLE, &sp) != 0)
+        LOG_W(HW, "[oxgrf-mon] could not set SCHED_IDLE, running at default prio\n");
+
+    uint32_t prev_ovf = 0, prev_tx_to = 0, prev_rx_to = 0;
+    bool first = true;
+
+    while (oxgrf_evt_mon_run) {
+        usleep(200000); /* 200 ms, far off the ~500 us per-slot cadence */
+        if (!oxgrf_evt_mon_run)
+            break;
+
+        uint32_t ovf = 0, tx_to = 0, rx_to = 0, c;
+        for (int i = 0; i < oxgrf->rx_num_channels; i++) {
+            c = 0; oxgrf_get_channel_event(oxgrf->dev, RX_CHANNEL_OVERFLOW, i + 1, &c); ovf   += c;
+            c = 0; oxgrf_get_channel_event(oxgrf->dev, RX_CHANNEL_TIMEOUT,  i + 1, &c); rx_to += c;
+        }
+        for (int i = 0; i < oxgrf->tx_num_channels; i++) {
+            c = 0; oxgrf_get_channel_event(oxgrf->dev, TX_CHANNEL_TIMEOUT, i + 1, &c); tx_to += c;
+        }
+
+        if (first) { /* establish baseline, don't print the startup totals */
+            prev_ovf = ovf; prev_tx_to = tx_to; prev_rx_to = rx_to; first = false;
+            continue;
+        }
+        if (ovf != prev_ovf || tx_to != prev_tx_to || rx_to != prev_rx_to) {
+            struct timespec now;
+            clock_gettime(CLOCK_REALTIME, &now);
+            LOG_W(HW, "[oxgrf-mon] %ld.%03ld RXovf=%u(+%u) TXtimeout=%u(+%u) RXtimeout=%u(+%u)\n",
+                  (long)now.tv_sec, now.tv_nsec / 1000000,
+                  ovf,   ovf   - prev_ovf,
+                  tx_to, tx_to - prev_tx_to,
+                  rx_to, rx_to - prev_rx_to);
+            prev_ovf = ovf; prev_tx_to = tx_to; prev_rx_to = rx_to;
+        }
+    }
+    return NULL;
+}
+
 /*! \brief Terminate operation of the oxgrf transceiver -- free all associated resources
  * \param device the hardware to use
  */
@@ -613,6 +684,12 @@ void trx_oxgrf_end(openair0_device *device)
     if(!running)
         return;
     running = false;
+
+    /* stop the off-path event monitor before tearing down the device */
+    if (oxgrf_evt_mon_run) {
+        oxgrf_evt_mon_run = false;
+        pthread_join(oxgrf_evt_mon_thread, NULL);
+    }
 
     LOG_I(HW, ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n");
     for(int i = 0; i < oxgrf->tx_num_channels; i++) {
@@ -1199,6 +1276,15 @@ int device_init(openair0_device *device, openair0_config_t *openair0_cfg)
     device->trx_write_init       = trx_oxgrf_write_init;
     device->openair0_cfg         = openair0_cfg;
     device->priv                 = (void *)oxgrf;
+
+    /* start the off-path HW event monitor (SCHED_IDLE, 200 ms poll) */
+    oxgrf_evt_mon_run = true;
+    if (pthread_create(&oxgrf_evt_mon_thread, NULL, oxgrf_event_monitor, device) != 0) {
+        LOG_E(HW, "[oxgrf] failed to start event monitor thread\n");
+        oxgrf_evt_mon_run = false;
+    } else {
+        LOG_I(HW, "[oxgrf] event monitor thread started (off-path, 200 ms)\n");
+    }
 
     return 0;
 }

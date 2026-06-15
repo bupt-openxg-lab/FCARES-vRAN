@@ -32,6 +32,7 @@
 
 #define _GNU_SOURCE
 #include <pthread.h>
+#include "cw_stall_probe.h"
 
 #include "assertions.h"
 #include <common/utils/LOG/log.h>
@@ -207,7 +208,8 @@ static void rx_func(processingData_L1_t *info)
   start_meas(&slot_select_time);
   int rx_slot_type = nr_slot_select(cfg, frame_rx, slot_rx);
   stop_meas(&slot_select_time);
-  LOG_W(NR_PHY, "[rx_func] %d.%d: slot_select costs %.2f us\n", frame_rx, slot_rx, get_time_meas_us(&slot_select_time));
+  /* HCS: 降为 LOG_D 削减 RT 路径每-slot 日志 (恢复: 把 NR_PHY 日志级别设 debug) */
+  LOG_D(NR_PHY, "[rx_func] %d.%d: slot_select costs %.2f us\n", frame_rx, slot_rx, get_time_meas_us(&slot_select_time));
   if (rx_slot_type == NR_UPLINK_SLOT || rx_slot_type == NR_MIXED_SLOT) {
 
     LOG_W(NR_PHY, "%d.%d NR_UPLINK_SLOT or NR_MIXED_SLOT\n", frame_rx, slot_rx);
@@ -252,19 +254,25 @@ static void rx_func(processingData_L1_t *info)
     stop_meas(&gNB->ul_indication_stats);
     LOG_W(NR_PHY,"[rx_func] %d.%d: ul_indication costs %.2f us\n",frame_rx, slot_rx, get_time_meas_us(&gNB->ul_indication_stats));
     start_meas(&fifo_notify_time);
+    /* --- split probes: isolate malloc (newElt) vs mutex+condsignal (push) --- */
+    const cw_probe_t cw_newelt = cw_probe_begin();
     notifiedFIFO_elt_t *res = newNotifiedFIFO_elt(sizeof(processingData_L1_t), 0, &gNB->L1_rx_out, NULL);
+    cw_probe_end(cw_newelt, "l1_rx_newElt(malloc)", frame_rx, slot_rx);
     processingData_L1_t *syncMsg = NotifiedFifoData(res);
     syncMsg->gNB = gNB;
     syncMsg->frame_rx = frame_rx;
     syncMsg->slot_rx = slot_rx;
     res->key = slot_rx;
     LOG_D(NR_PHY, "Signaling completion for %d.%d (mod_slot %d) on L1_rx_out\n", frame_rx, slot_rx, slot_rx % RU_RX_SLOT_DEPTH);
+    const cw_probe_t cw_push = cw_probe_begin();
     pushNotifiedFIFO(&gNB->L1_rx_out, res);
+    cw_probe_end(cw_push, "l1_rx_push(lockF+signal)", frame_rx, slot_rx);
     stop_meas(&fifo_notify_time);
     LOG_W(NR_PHY, "[rx_func] %d.%d: l1_rx_out_notify costs %.2f us\n", frame_rx, slot_rx, get_time_meas_us(&fifo_notify_time));
   }
   stop_meas(&rxfunc_time);
-  LOG_W(NR_PHY,"[rx_func] %d.%d: rxfunc costs %.2f us\n",frame_rx, slot_rx, get_time_meas_us(&rxfunc_time));
+  /* HCS: 降为 LOG_D 削减 RT 路径每-slot 日志 (恢复: 把 NR_PHY 日志级别设 debug) */
+  LOG_D(NR_PHY,"[rx_func] %d.%d: rxfunc costs %.2f us\n",frame_rx, slot_rx, get_time_meas_us(&rxfunc_time));
 }
 
 static size_t dump_L1_meas_stats(PHY_VARS_gNB *gNB, RU_t *ru, char *output, size_t outputlen) {
