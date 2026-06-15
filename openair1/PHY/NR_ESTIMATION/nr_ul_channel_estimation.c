@@ -22,6 +22,7 @@
 #include <string.h>
 
 #include "nr_ul_estimation.h"
+#include "PHY/defs_RU.h"
 #include "PHY/sse_intrin.h"
 #include "PHY/NR_REFSIG/nr_refsig.h"
 #include "PHY/NR_REFSIG/dmrs_nr.h"
@@ -88,7 +89,7 @@ static void nr_pusch_antenna_processing(void *arg)
   c16_t **ul_ch_estimates = (c16_t **)pusch_vars->ul_ch_estimates;
   NR_DL_FRAME_PARMS *frame_parms = rdata->frame_parms;
   const int symbolSize = frame_parms->ofdm_symbol_size;
-  const int slot_offset = (Ns & 3) * frame_parms->symbols_per_slot * symbolSize;
+  const int slot_offset = (Ns % RU_RX_SLOT_DEPTH) * frame_parms->symbols_per_slot * symbolSize;
   const int delta = get_delta(p, pusch_pdu->dmrs_config_type);
   const int symbol_offset = symbolSize * symbol;
   const int k0 = bwp_start_subcarrier;
