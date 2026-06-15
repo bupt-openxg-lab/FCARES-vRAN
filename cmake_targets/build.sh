@@ -1,0 +1,1 @@
+sudo ./build_oai --gNB  -w OXGRF
