@@ -10,11 +10,6 @@ log/
 lte_build_oai/
 codex_rescue
 
-# machine-local experiment config (host paths / core pinning / sweep knobs,
-# edited every run -- keep working copy but stop tracking)
-/gnb.sa.band78.fr1.273PRB.oxgrf.conf
-/cmake_targets/run_gNB.sh
-
 # large local-only run artifacts and datasets (do not commit)
 /python_scripts_bak/
 /debug/
