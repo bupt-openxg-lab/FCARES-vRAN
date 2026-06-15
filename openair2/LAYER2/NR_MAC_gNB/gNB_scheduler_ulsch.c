@@ -47,6 +47,130 @@
 #include "LAYER2/NR_MAC_gNB/co_workload_shared.h"
 static shm_state_t *co_workload_shm = NULL;
 static int co_workload_attach_warned = 0;
+static int co_workload_current_valid = 0;
+static uint_fast32_t co_workload_current_level = INTERF_LEVEL_NO_CACHE;
+static uint_fast32_t co_workload_current_type = INTERF_TYPE_CPU;
+
+// HCS: PHY->MAC FFT 数据流与预测承诺 backlog 集成
+#include "LAYER2/NR_MAC_gNB/hcs_shared.h"
+
+static uint32_t hcs_num_cb_from_tbs(uint32_t tbs_bytes, uint16_t R)
+{
+  const uint32_t tbs_bits = tbs_bytes << 3;
+  const uint8_t BG = get_BG(tbs_bits, R);
+  const uint32_t Kcb = (BG == 1) ? 8448 : 3840;
+  uint32_t ncb = 1;
+  if (tbs_bits > Kcb) {
+    ncb = tbs_bits / (Kcb - 24);
+    if ((Kcb - 24) * ncb < tbs_bits)
+      ncb++;
+  }
+  return ncb;
+}
+
+/* HCS: 给定候选 nb_rb 算出 (TBS bytes, CodeBlocks), 供 hcs_select_prb 二分降 RB.
+ * Qm/R/dmrs/Nl 在调度该 UE 时已定; 公式与本文件 ~2347 处 num_cb 计算一致. */
+typedef struct { uint16_t Qm; uint16_t R; uint16_t nb_dmrs; uint8_t Nl; } hcs_tbs_ctx_t;
+static void hcs_mac_tbs_cb(int nb_rb, int nb_symbol, int mcs, int round,
+                           void *ctx, double *out_TBS, int *out_CodeBlocks)
+{
+  (void)mcs;
+  (void)round;
+  const hcs_tbs_ctx_t *c = (const hcs_tbs_ctx_t *)ctx;
+  const uint32_t tbs_bits = nr_compute_tbs(c->Qm, c->R, (uint16_t)nb_rb, (uint16_t)nb_symbol,
+                                           c->nb_dmrs, 0, 0, c->Nl);
+  const uint32_t tbs_bytes = tbs_bits >> 3;   /* 训练/调度日志里的 TBS 列是 bytes */
+  *out_TBS = (double)tbs_bytes;
+  *out_CodeBlocks = (int)hcs_num_cb_from_tbs(tbs_bytes, c->R);
+}
+
+static double hcs_predict_grant_us(const gNB_MAC_INST *nrmac,
+                                   const NR_sched_pusch_t *sched_pusch,
+                                   int round,
+                                   uint32_t *out_num_cb)
+{
+  if (!nrmac->hcs_enabled || nrmac->hcs_state < 0 || nrmac->hcs_state >= HCS_STATE_COUNT)
+    return -1.0;
+  uint32_t num_cb = hcs_num_cb_from_tbs(sched_pusch->tb_size, sched_pusch->R);
+  if (out_num_cb)
+    *out_num_cb = num_cb;
+  return hcs_predict_total((hcs_state_t)nrmac->hcs_state,
+                           (double)sched_pusch->tb_size,
+                           (double)sched_pusch->mcs,
+                           (double)sched_pusch->rbSize,
+                           (double)sched_pusch->tda_info.nrOfSymbols,
+                           (double)round,
+                           (int)num_cb,
+                           nrmac->hcs_q_idx);
+}
+
+static void hcs_commit_grant(gNB_MAC_INST *nrmac,
+                             frame_t sched_frame,
+                             int sched_slot,
+                             const char *reason,
+                             const NR_sched_pusch_t *sched_pusch,
+                             int round)
+{
+  uint32_t num_cb = 0;
+  double pred_us = hcs_predict_grant_us(nrmac, sched_pusch, round, &num_cb);
+  if (pred_us <= 0.0)
+    return;
+
+  const double backlog_before = hcs_backlog_get(&nrmac->hcs_backlog);
+  hcs_backlog_add(&nrmac->hcs_backlog, pred_us);
+  LOG_W(NR_MAC,
+        "[HCS] %d.%d: commit=%s pred_state=%s state=%d q_idx=%d sel_rb=%d sel_tbs=%d sel_cb=%u sel_pred=%.1fus backlog_before=%.0fus backlog_after=%.0fus budget=%.0fus\n",
+        sched_frame,
+        sched_slot,
+        reason,
+        hcs_state_name((hcs_state_t)nrmac->hcs_state),
+        nrmac->hcs_state,
+        nrmac->hcs_q_idx,
+        sched_pusch->rbSize,
+        sched_pusch->tb_size,
+        num_cb,
+        pred_us,
+        backlog_before,
+        hcs_backlog_get(&nrmac->hcs_backlog),
+        hcs_backlog_grant_budget(&nrmac->hcs_backlog));
+}
+
+static void hcs_advance_slot(gNB_MAC_INST *nrmac, frame_t frame, int slot)
+{
+  if (!nrmac->hcs_enabled)
+    return;
+
+  uint_fast64_t fseq = atomic_load_explicit(&hcs_shared.fft_seq, memory_order_acquire);
+  if (fseq != nrmac->hcs_fft_seq_seen) {
+    nrmac->hcs_fft_seq_seen = fseq;
+    double f = atomic_load_explicit(&hcs_shared.fft_us, memory_order_relaxed);
+    if (f > 0.0)
+      hcs_classifier_push(&nrmac->hcs_clf, f);
+  }
+
+  const int slots_per_frame = nrmac->frame_structure.numb_slots_frame;
+  const int abs_slot = (int)frame * slots_per_frame + slot;
+  if (nrmac->hcs_backlog_last_abs_slot < 0) {
+    nrmac->hcs_backlog_last_abs_slot = abs_slot;
+  } else {
+    int delta = abs_slot - nrmac->hcs_backlog_last_abs_slot;
+    if (delta < 0)
+      delta += MAX_FRAME_NUMBER * slots_per_frame;
+    if (delta > 0) {
+      double before = hcs_backlog_get(&nrmac->hcs_backlog);
+      hcs_backlog_drain_slots(&nrmac->hcs_backlog, delta);
+      nrmac->hcs_backlog_last_abs_slot = abs_slot;
+      LOG_D(NR_MAC, "[HCS] %d.%d: drain_slots=%d backlog %.0fus->%.0fus\n",
+            frame, slot, delta, before, hcs_backlog_get(&nrmac->hcs_backlog));
+    }
+  }
+
+  int interf = hcs_classifier_interf(&nrmac->hcs_clf);
+  nrmac->hcs_state = (interf >= 0) ? (int)hcs_interf_to_state(interf) : (int)HCS_STATE_NO_CACHE;
+  LOG_D(NR_MAC, "[HCS] %d.%d: interf=%s state=%d backlog=%.0fus mode=%s\n",
+        frame, slot, hcs_interf_name(interf >= 0 ? interf : 0), nrmac->hcs_state,
+        hcs_backlog_get(&nrmac->hcs_backlog), hcs_clf_mode_name(nrmac->hcs_clf.mode));
+}
 //#define SRS_IND_DEBUG
 
 
@@ -1826,6 +1950,8 @@ static bool allocate_ul_retransmission(gNB_MAC_INST *nrmac,
   n_rb_sched -= sched_pusch->rbSize;
   for (int rb = bwpStart; rb < sched_ctrl->sched_pusch.rbSize; rb++)
     rballoc_mask[rb + sched_ctrl->sched_pusch.rbStart] |= SL_to_bitmap(sched_pusch->tda_info.startSymbolIndex, sched_pusch->tda_info.nrOfSymbols);
+  hcs_commit_grant(nrmac, sched_pusch->frame, sched_pusch->slot, "retx",
+                   sched_pusch, sched_ctrl->ul_harq_processes[harq_pid].round);
   return true;
 }
 
@@ -1868,11 +1994,15 @@ static void pf_ul(module_id_t module_id,
   if (co_workload_shm) {
     uint_fast32_t level = atomic_load(&co_workload_shm->level);
     uint_fast32_t type  = atomic_load(&co_workload_shm->type);
+    co_workload_current_level = level;
+    co_workload_current_type = type;
+    co_workload_current_valid = 1;
     const char *level_str = (level < INTERF_LEVEL_NUM) ? INTERF_LEVEL_NAMES[level] : "???";
     const char *type_str  = (type  < INTERF_TYPE_NUM) ? INTERF_TYPE_NAMES[type]   : "???";
     LOG_W(NR_MAC, "[co_workload] %d.%d: stress_level=%s, stress_type=%s\n",
           frame, slot, level_str, type_str);
   }
+
   // min_rb = 5
   // LOG_W(PHY,"min_rb = %d",min_rb);
   // UEs that could be scheduled
@@ -2149,6 +2279,8 @@ static void pf_ul(module_id_t module_id,
       for (int rb = bwpStart; rb < sched_ctrl->sched_pusch.rbSize; rb++)
         rballoc_mask[rb + sched_ctrl->sched_pusch.rbStart] |= slbitmap;
 
+      hcs_commit_grant(nrmac, sched_frame, sched_slot, "no-data", sched_pusch, 0);
+
       remainUEs[beam.idx]--;
       continue;
     }
@@ -2303,6 +2435,58 @@ static void pf_ul(module_id_t module_id,
     sched_ctrl->ul_bler_stats.mcs = sched_pusch->mcs; /* force estimated MCS down */
 
     update_ul_ue_R_Qm(sched_pusch->mcs, current_BWP->mcs_table, current_BWP->pusch_Config, &sched_pusch->R, &sched_pusch->Qm);
+
+    int hcs_req_rb = -1;
+    double hcs_req_tbs = 0.0;
+    int hcs_req_cb = 0;
+    double hcs_req_pred_us = -1.0;
+    int hcs_cap_rb = -1;
+    int hcs_round = 0;
+    double hcs_budget_before_us = 0.0;
+
+    /* HCS: 按 backlog + 每状态时延预测收紧 max_rbSize.
+     * 这里仅计算候选 cap, 不更新 backlog; backlog 只在最终 rbSize/TBS 确定后 commit. */
+    if (nrmac->hcs_enabled && nrmac->hcs_state >= 0 && nrmac->hcs_state < HCS_STATE_COUNT) {
+      hcs_round = sched_pusch->ul_harq_pid >= 0
+                    ? sched_ctrl->ul_harq_processes[sched_pusch->ul_harq_pid].round
+                    : 0;
+      hcs_tbs_ctx_t hcs_cbctx = {
+        .Qm = sched_pusch->Qm,
+        .R = sched_pusch->R,
+        .nb_dmrs = (uint16_t)(sched_pusch->dmrs_info.N_PRB_DMRS * sched_pusch->dmrs_info.num_dmrs_symb),
+        .Nl = sched_pusch->nrOfLayers,
+      };
+      hcs_req_rb = (int)max_rbSize;
+      hcs_cap_rb = hcs_req_rb;
+      hcs_budget_before_us = hcs_backlog_grant_budget(&nrmac->hcs_backlog);
+      hcs_mac_tbs_cb((int)max_rbSize, sched_pusch->tda_info.nrOfSymbols, sched_pusch->mcs,
+                     hcs_round, &hcs_cbctx, &hcs_req_tbs, &hcs_req_cb);
+      hcs_req_pred_us = hcs_predict_total((hcs_state_t)nrmac->hcs_state,
+                                          hcs_req_tbs,
+                                          (double)sched_pusch->mcs,
+                                          (double)max_rbSize,
+                                          (double)sched_pusch->tda_info.nrOfSymbols,
+                                          (double)hcs_round,
+                                          hcs_req_cb,
+                                          nrmac->hcs_q_idx);
+      int hcs_rb = hcs_select_prb(&nrmac->hcs_backlog, (hcs_state_t)nrmac->hcs_state,
+                                  sched_pusch->mcs, sched_pusch->tda_info.nrOfSymbols, hcs_round,
+                                  (int)max_rbSize, (int)min_rb, nrmac->hcs_q_idx,
+                                  hcs_mac_tbs_cb, &hcs_cbctx);
+      if (hcs_rb > 0 && hcs_rb < (int)max_rbSize) {
+        LOG_W(NR_MAC, "[HCS] %d.%d: backlog=%.0fus state=%d cap max_rbSize %d->%d\n",
+              sched_frame, sched_slot, hcs_backlog_get(&nrmac->hcs_backlog),
+              nrmac->hcs_state, (int)max_rbSize, hcs_rb);
+        hcs_cap_rb = hcs_rb;
+        max_rbSize = hcs_rb;
+      } else if (hcs_rb <= 0 && max_rbSize > 5) {
+        LOG_W(NR_MAC, "[HCS] %d.%d: no feasible RB, force max_rbSize %d->5\n",
+              sched_frame, sched_slot, (int)max_rbSize);
+        hcs_cap_rb = 5;
+        max_rbSize = 5;
+      }
+    }
+
     uint16_t rbSize = 0;
     uint32_t TBS = 0;
     nr_find_nb_rb(sched_pusch->Qm,
@@ -2358,6 +2542,26 @@ static void pf_ul(module_id_t module_id,
           sched_pusch->dmrs_info.N_PRB_DMRS,
           BG,
           num_cb);
+
+    if (nrmac->hcs_enabled && hcs_req_rb > 0 && nrmac->hcs_state >= 0 && nrmac->hcs_state < HCS_STATE_COUNT) {
+      uint32_t hcs_sel_cb = 0;
+      double hcs_sel_pred_us = hcs_predict_grant_us(nrmac, sched_pusch, hcs_round, &hcs_sel_cb);
+      const double hcs_backlog_before_us = hcs_backlog_get(&nrmac->hcs_backlog);
+      if (hcs_sel_pred_us > 0.0)
+        hcs_backlog_add(&nrmac->hcs_backlog, hcs_sel_pred_us);
+      const char *actual_level = co_workload_current_valid && co_workload_current_level < INTERF_LEVEL_NUM
+                                   ? INTERF_LEVEL_NAMES[co_workload_current_level] : "UNKNOWN";
+      const char *actual_type = co_workload_current_valid && co_workload_current_type < INTERF_TYPE_NUM
+                                  ? INTERF_TYPE_NAMES[co_workload_current_type] : "UNKNOWN";
+      LOG_W(NR_MAC,
+            "[HCS] %d.%d: actual_cache=%s/%s pred_state=%s state=%d q_idx=%d req_rb=%d req_tbs=%.0f req_cb=%d req_pred=%.1fus cap_rb=%d sel_rb=%d sel_tbs=%d sel_cb=%u sel_pred=%.1fus backlog_before=%.0fus backlog_after=%.0fus budget_before=%.0fus budget_after=%.0fus\n",
+            sched_frame, sched_slot, actual_level, actual_type,
+            hcs_state_name((hcs_state_t)nrmac->hcs_state), nrmac->hcs_state,
+            nrmac->hcs_q_idx, hcs_req_rb, hcs_req_tbs, hcs_req_cb, hcs_req_pred_us,
+            hcs_cap_rb, (int)rbSize, sched_pusch->tb_size, hcs_sel_cb, hcs_sel_pred_us,
+            hcs_backlog_before_us, hcs_backlog_get(&nrmac->hcs_backlog),
+            hcs_budget_before_us, hcs_backlog_grant_budget(&nrmac->hcs_backlog));
+    }
 
     /* Mark the corresponding RBs as used */
 
@@ -2454,6 +2658,8 @@ void nr_schedule_ulsch(module_id_t module_id, frame_t frame, sub_frame_t slot, n
   gNB_MAC_INST *nr_mac = RC.nrmac[module_id];
   /* already mutex protected: held in gNB_dlsch_ulsch_scheduler() */
   NR_SCHED_ENSURE_LOCKED(&nr_mac->sched_lock);
+
+  hcs_advance_slot(nr_mac, frame, slot);
 
   /* Uplink data ONLY can be scheduled when the current slot is downlink slot,
    * because we have to schedule the DCI0 first before schedule uplink data */

@@ -112,6 +112,14 @@
 #define HLP_MACRLC_UL_MCS_SCAN_START "Starting MCS for auto sweep (default 9, scan from this value upward)"
 #define HLP_MACRLC_UL_MCS_SCAN_RB_PERIOD "Number of frames before incrementing RB by 5 (default 10)"
 
+/* HCS compute-aware scheduling */
+#define CONFIG_STRING_MACRLC_HCS_ENABLED                   "hcs_enabled"
+#define CONFIG_STRING_MACRLC_HCS_CLF_MODE                  "hcs_clf_mode"
+#define CONFIG_STRING_MACRLC_HCS_QIDX                      "hcs_q_idx"
+#define HLP_MACRLC_HCS_ENABLED  "Enable HCS compute-aware UL scheduling (FFT->state, backlog->RB cap) (default 0)"
+#define HLP_MACRLC_HCS_CLF_MODE "HCS FFT state classifier mode: 0=mean-threshold, 1=[mean,std,skew,kurt] tree (default 0)"
+#define HLP_MACRLC_HCS_QIDX     "HCS conservative quantile index for L prediction: -1=mean, 1=p70 (default 1)"
+
 /*-------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*                                            MacRLC  configuration parameters                                                                           */
 /*   optname                                            helpstr   paramflags    XXXptr              defXXXval                  type           numelt     */
@@ -168,6 +176,9 @@
   {CONFIG_STRING_MACRLC_UL_MCS_SCAN_PERIOD,          HLP_MACRLC_UL_MCS_SCAN_PERIOD, 0, .uptr=NULL,  .defintval=100,             TYPE_UINT,    0}, \
   {CONFIG_STRING_MACRLC_UL_MCS_SCAN_START,           HLP_MACRLC_UL_MCS_SCAN_START, 0, .u8ptr=NULL,  .defintval=9,               TYPE_UINT8,   0}, \
   {CONFIG_STRING_MACRLC_UL_MCS_SCAN_RB_PERIOD,       HLP_MACRLC_UL_MCS_SCAN_RB_PERIOD, 0, .uptr=NULL,  .defintval=10,              TYPE_UINT,    0}, \
+  {CONFIG_STRING_MACRLC_HCS_ENABLED,                 HLP_MACRLC_HCS_ENABLED,   PARAMFLAG_BOOL, .u8ptr=NULL, .defintval=0,          TYPE_UINT8,   0}, \
+  {CONFIG_STRING_MACRLC_HCS_CLF_MODE,                HLP_MACRLC_HCS_CLF_MODE,  0, .u8ptr=NULL,  .defintval=0,               TYPE_UINT8,   0}, \
+  {CONFIG_STRING_MACRLC_HCS_QIDX,                    HLP_MACRLC_HCS_QIDX,      0, .iptr=NULL,   .defintval=1,               TYPE_INT,     0}, \
 }
 // clang-format off
 
@@ -219,6 +230,9 @@
 #define MACRLC_UL_MCS_SCAN_PERIOD_IDX                          45
 #define MACRLC_UL_MCS_SCAN_START_IDX                           46
 #define MACRLC_UL_MCS_SCAN_RB_PERIOD_IDX                       47
+#define MACRLC_HCS_ENABLED_IDX                                 48
+#define MACRLC_HCS_CLF_MODE_IDX                                49
+#define MACRLC_HCS_QIDX_IDX                                    50
 
 #define MACRLCPARAMS_CHECK { \
   { .s5 = { NULL } }, \
@@ -269,6 +283,9 @@
   { .s5 = { NULL } }, /* UL MCS scan period */ \
   { .s2 = { config_check_intrange, {0, 28} } }, /* UL MCS scan start */ \
   { .s5 = { NULL } }, /* UL MCS scan cb period */ \
+  { .s5 = { NULL } }, /* HCS enabled */ \
+  { .s5 = { NULL } }, /* HCS clf mode */ \
+  { .s2 = { config_check_intrange, {-1, 9} } }, /* HCS q_idx range */ \
 }
 
 /*---------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -43,6 +43,9 @@
 #include <string.h>
 #include <pthread.h>
 #include "common/utils/ds/seq_arr.h"
+/* HCS compute-aware scheduling: FFT 状态分类器 + 计算 backlog (含 hcs_model.h) */
+#include "hcs_state_classifier.h"
+#include "hcs_backlog.h"
 #include "common/utils/nr/nr_common.h"
 #include "common/utils/ds/byte_array.h"
 
@@ -958,6 +961,16 @@ typedef struct gNB_MAC_INST_s {
   pthread_mutex_t sched_lock;
 
   mac_stats_t mac_stats;
+
+  /* ---- HCS compute-aware scheduling (plan 组件 ②③④⑤) ---- */
+  bool hcs_enabled;                  /* 总开关 (env HCS_ENABLED) */
+  hcs_fft_classifier_t hcs_clf;      /* FFT 时延 -> 争用 state (MAC 线程持有/更新) */
+  hcs_backlog_t hcs_backlog;         /* 计算 backlog 递推 (MAC 线程持有/更新) */
+  int hcs_backlog_last_abs_slot;     /* 上次已做 per-slot drain 的源 slot 绝对编号 */
+  int hcs_state;                     /* 每 slot 缓存的当前 hcs_state_t */
+  int hcs_q_idx;                     /* 保守分位 idx (-1=mean, 1=p70) */
+  uint_fast64_t hcs_fft_seq_seen;    /* 已消费的 hcs_shared.fft_seq */
+  uint_fast64_t hcs_lactual_seq_seen;/* 已消费的 hcs_shared.lactual_seq */
 
 } gNB_MAC_INST;
 

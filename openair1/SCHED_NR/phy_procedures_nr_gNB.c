@@ -34,10 +34,12 @@
 #include "PHY/MODULATION/nr_modulation.h"
 #include "PHY/NR_UE_TRANSPORT/srs_modulation_nr.h"
 #include "T.h"
+#include "PHY/defs_RU.h"
 #include "executables/nr-softmodem.h"
 #include "executables/softmodem-common.h"
 #include "nfapi/oai_integration/vendor_ext.h"
 #include "assertions.h"
+#include "../../openair2/LAYER2/NR_MAC_gNB/hcs_shared.h"   /* HCS: 上报 frontend+decode L_actual */
 #include <time.h>
 #include <stdint.h>
 #include <openair1/PHY/TOOLS/phy_scope_interface.h>
@@ -778,7 +780,7 @@ int phy_procedures_gNB_uespec_RX(PHY_VARS_gNB *gNB, int frame_rx, int slot_rx, N
   stop_meas(&i0_measurement_time);
   LOG_W(NR_PHY, "[rx_func] %d.%d: i0_measurement costs %.2f us\n", frame_rx, slot_rx, get_time_meas_us(&i0_measurement_time));
 
-  const int soffset = (slot_rx & 3) * gNB->frame_parms.symbols_per_slot * gNB->frame_parms.ofdm_symbol_size;
+  const int soffset = (slot_rx % RU_RX_SLOT_DEPTH) * gNB->frame_parms.symbols_per_slot * gNB->frame_parms.ofdm_symbol_size;
   start_meas(&gNB->phy_proc_rx);
 
   start_meas(&pucch_rx_time);
@@ -997,6 +999,11 @@ int phy_procedures_gNB_uespec_RX(PHY_VARS_gNB *gNB, int frame_rx, int slot_rx, N
   // if (gNB->max_nb_pusch == 1){
     stop_meas(&gNB->ulsch_decoding_stats);
     LOG_W(NR_PHY,"[rx_func] %d.%d:  ulsch_decoding costs %.2f us\n" ,frame_rx, slot_rx, get_time_meas_us(&gNB->ulsch_decoding_stats));
+    /* HCS: 上报本 slot L_actual = frontend work-sum + decode work-sum 给 MAC backlog.
+     * 用 work-sum 口径 (与 predictor 训练口径一致), 不用并行墙钟 (decode 并行墙钟 ~160us 远小于真实计算量).
+     * 仅在本 slot 确有 PUSCH frontend work 时上报, 避免空 slot 用陈旧 decode 值污染 backlog. */
+    if (pusch_frontend_task_count > 0)
+      hcs_report_lactual(pusch_frontend_task_us + gNB->hcs_decode_work_us);
   // }
 
   start_meas(&srs_rx_time);

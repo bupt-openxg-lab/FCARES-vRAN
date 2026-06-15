@@ -266,6 +266,17 @@ void mac_top_init_gNB(ngran_node_t node_type,
       
       RC.nrmac[i]->Mod_id = i;
 
+      /* HCS compute-aware scheduling: 结构默认初始化; 开关/模式/分位由 conf 文件 MACRLCs 段
+       * (hcs_enabled / hcs_clf_mode / hcs_q_idx) 在 gnb_config.c 里覆盖. */
+      hcs_classifier_init(&RC.nrmac[i]->hcs_clf, HCS_CLF_MEAN_THRESHOLD);
+      hcs_backlog_init(&RC.nrmac[i]->hcs_backlog, HCS_BUDGET_US, HCS_DEADLINE_US);
+      RC.nrmac[i]->hcs_backlog_last_abs_slot = -1;
+      RC.nrmac[i]->hcs_enabled = false;
+      RC.nrmac[i]->hcs_state = HCS_STATE_NO_CACHE;
+      RC.nrmac[i]->hcs_q_idx = 1;
+      RC.nrmac[i]->hcs_fft_seq_seen = 0;
+      RC.nrmac[i]->hcs_lactual_seq_seen = 0;
+
       RC.nrmac[i]->tag = (NR_TAG_t*)malloc(sizeof(NR_TAG_t));
       memset((void*)RC.nrmac[i]->tag,0,sizeof(NR_TAG_t));
         

@@ -40,6 +40,7 @@
 #include "common/utils/LOG/vcd_signal_dumper.h"
 
 #include "../../openair2/LAYER2/NR_MAC_gNB/co_workload_shared.h"
+#include "../../openair2/LAYER2/NR_MAC_gNB/hcs_shared.h"
 
 #include "T.h"
 
@@ -500,6 +501,7 @@ void nr_fep_tp(RU_t *ru, int slot) {
   if (cpu_freq_GHz == 0.0)
     cpu_freq_GHz = get_cpu_freq_GHz();
   const double fft_task_us = fft_task_cycles / cpu_freq_GHz / 1000.0;
+  hcs_report_fft(fft_task_us);   /* HCS: 上报本 slot FFT 时延给 MAC 分类器 */
   const char *stress_level;
   const char *stress_type;
   ru_fep_get_co_workload_state(&stress_level, &stress_type);

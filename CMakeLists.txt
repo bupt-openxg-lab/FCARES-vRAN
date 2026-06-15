@@ -1225,6 +1225,10 @@ set (MAC_NR_SRC
   ${NR_GNB_MAC_DIR}/gNB_scheduler_ulsch.c
   ${NR_GNB_MAC_DIR}/leaf_model_exported.c
   ${NR_GNB_MAC_DIR}/leaf_model_util.c
+  ${NR_GNB_MAC_DIR}/hcs_model.c
+  ${NR_GNB_MAC_DIR}/hcs_backlog.c
+  ${NR_GNB_MAC_DIR}/hcs_state_classifier.c
+  ${NR_GNB_MAC_DIR}/hcs_shared.c
   ${NR_GNB_MAC_DIR}/gNB_scheduler_primitives.c
   ${NR_GNB_MAC_DIR}/gNB_scheduler_phytest.c
   ${NR_GNB_MAC_DIR}/gNB_scheduler_uci.c

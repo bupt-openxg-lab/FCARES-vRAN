@@ -1651,6 +1651,14 @@ void RCconfig_nr_macrlc(configmodule_interface_t *cfg)
             RC.nrmac[j]->ul_mcs_scan_auto_sweep, RC.nrmac[j]->ul_mcs_scan_min_mcs,
             RC.nrmac[j]->ul_mcs_scan_max_mcs, RC.nrmac[j]->ul_mcs_scan_period,
             RC.nrmac[j]->ul_mcs_scan_start, RC.nrmac[j]->ul_mcs_scan_rb_period);
+      /* HCS compute-aware scheduling (覆盖 mac_top_init_gNB 的默认值) */
+      RC.nrmac[j]->hcs_enabled = *(MacRLC_ParamList.paramarray[j][MACRLC_HCS_ENABLED_IDX].u8ptr);
+      RC.nrmac[j]->hcs_clf.mode = (*(MacRLC_ParamList.paramarray[j][MACRLC_HCS_CLF_MODE_IDX].u8ptr) == 1)
+                                    ? HCS_CLF_TREE : HCS_CLF_MEAN_THRESHOLD;
+      RC.nrmac[j]->hcs_q_idx = *(MacRLC_ParamList.paramarray[j][MACRLC_HCS_QIDX_IDX].iptr);
+      LOG_I(NR_MAC, "[HCS] config: enabled=%d clf_mode=%s q_idx=%d budget=%.0fus deadline=%.0fus\n",
+            RC.nrmac[j]->hcs_enabled, hcs_clf_mode_name(RC.nrmac[j]->hcs_clf.mode),
+            RC.nrmac[j]->hcs_q_idx, (double)HCS_BUDGET_US, (double)HCS_DEADLINE_US);
       RC.nrmac[j]->min_grant_prb = *(MacRLC_ParamList.paramarray[j][MACRLC_MIN_GRANT_PRB_IDX].u8ptr);
       RC.nrmac[j]->min_grant_mcs = *(MacRLC_ParamList.paramarray[j][MACRLC_MIN_GRANT_MCS_IDX].u8ptr);
       RC.nrmac[j]->identity_pm = *(MacRLC_ParamList.paramarray[j][MACRLC_IDENTITY_PM_IDX].u8ptr);
