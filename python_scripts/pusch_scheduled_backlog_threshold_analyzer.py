@@ -103,6 +103,12 @@ def parse_csv_list(raw: str) -> List[str]:
     return values
 
 
+def parse_optional_csv_list(raw: str) -> List[str]:
+    if not raw:
+        return []
+    return parse_csv_list(raw)
+
+
 def default_path(base_output: str, suffix: str) -> str:
     p = Path(base_output)
     return str(p.with_name(f"{p.stem}{suffix}"))
@@ -113,6 +119,22 @@ def most_common(values: Iterable[Any]) -> Any:
     if not clean:
         return ""
     return Counter(clean).most_common(1)[0][0]
+
+
+def percentile(values: Sequence[float], q: float) -> float:
+    clean = sorted(float(v) for v in values if math.isfinite(float(v)))
+    if not clean:
+        return 0.0
+    q = min(1.0, max(0.0, q))
+    if len(clean) == 1:
+        return clean[0]
+    pos = (len(clean) - 1) * q
+    lo = int(math.floor(pos))
+    hi = int(math.ceil(pos))
+    if lo == hi:
+        return clean[lo]
+    frac = pos - lo
+    return clean[lo] * (1.0 - frac) + clean[hi] * frac
 
 
 def add_absolute_frame(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -202,7 +224,10 @@ def build_source_timeline_rows(
     slot_timing_rows: List[Dict[str, Any]],
     cost_cols: List[str],
     slot_budget_us: float,
+    budget_deduct_cols: Optional[List[str]] = None,
+    budget_deduct_mode: str = "per-slot",
 ) -> List[Dict[str, Any]]:
+    budget_deduct_cols = budget_deduct_cols or []
     if not any(row.get("abs_slot") not in (None, "") for row in slot_timing_rows):
         slot_timing_rows = add_absolute_frame(slot_timing_rows)
 
@@ -218,6 +243,11 @@ def build_source_timeline_rows(
         if any(part is None for part in parts):
             continue
         delay_us = sum(float(part) for part in parts if part is not None)
+        budget_parts = {
+            cost_col: float(to_float(row.get(cost_col)) or 0.0)
+            for cost_col in budget_deduct_cols
+        }
+        budget_deduct_us = sum(budget_parts.values())
         existing = grouped.get(abs_slot)
         if existing is None:
             existing = {
@@ -226,12 +256,18 @@ def build_source_timeline_rows(
                 "frame": frame,
                 "slot": slot,
                 "delay_us": 0.0,
+                "budget_deduct_raw_us": 0.0,
                 "source_row_count": 0,
                 "stress_level_values": [],
                 "stress_label_values": [],
             }
+            for cost_col in budget_deduct_cols:
+                existing[f"budget_deduct_{cost_col}"] = 0.0
             grouped[abs_slot] = existing
         existing["delay_us"] += delay_us
+        existing["budget_deduct_raw_us"] += budget_deduct_us
+        for cost_col, value in budget_parts.items():
+            existing[f"budget_deduct_{cost_col}"] += value
         existing["source_row_count"] += 1
         existing["stress_level_values"].append(row.get("stress_level", ""))
         existing["stress_label_values"].append(row.get("stress_label", ""))
@@ -242,6 +278,23 @@ def build_source_timeline_rows(
             f"No valid source slot timing rows found for cost columns {cost_cols}. "
             f"Available columns include: {', '.join(available_cols[:50])}"
         )
+
+    for row in grouped.values():
+        row["stress_level"] = most_common(row["stress_level_values"])
+        row["stress_label"] = most_common(row["stress_label_values"])
+
+    state_budget_deduct: Dict[str, float] = {}
+    if budget_deduct_cols and budget_deduct_mode.startswith("state-p"):
+        quantile = float(budget_deduct_mode.removeprefix("state-p")) / 100.0
+        by_state: Dict[str, List[float]] = defaultdict(list)
+        for row in grouped.values():
+            state = str(row.get("stress_level") or "UNKNOWN")
+            by_state[state].append(float(row.get("budget_deduct_raw_us") or 0.0))
+        all_values = [float(row.get("budget_deduct_raw_us") or 0.0) for row in grouped.values()]
+        fallback = percentile(all_values, quantile)
+        for state, values in by_state.items():
+            state_budget_deduct[state] = percentile(values, quantile)
+        state_budget_deduct.setdefault("UNKNOWN", fallback)
 
     min_abs_slot = min(grouped)
     max_abs_slot = max(grouped)
@@ -256,14 +309,27 @@ def build_source_timeline_rows(
                 "frame": (abs_slot // SLOT_MODULO) % FRAME_MODULO,
                 "slot": abs_slot % SLOT_MODULO,
                 "delay_us": 0.0,
+                "budget_deduct_raw_us": 0.0,
                 "source_row_count": 0,
-                "stress_level_values": [],
-                "stress_label_values": [],
+                "stress_level": "",
+                "stress_label": "",
             }
+            for cost_col in budget_deduct_cols:
+                row[f"budget_deduct_{cost_col}"] = 0.0
         delay_us = float(row["delay_us"])
+        if budget_deduct_mode == "none" or not budget_deduct_cols:
+            budget_deduct_us = 0.0
+        elif budget_deduct_mode == "per-slot":
+            budget_deduct_us = float(row.get("budget_deduct_raw_us") or 0.0)
+        elif budget_deduct_mode.startswith("state-p"):
+            state = str(row.get("stress_level") or "UNKNOWN")
+            budget_deduct_us = state_budget_deduct.get(state, state_budget_deduct.get("UNKNOWN", 0.0))
+        else:
+            raise SystemExit(f"Unsupported --budget-deduct-mode={budget_deduct_mode!r}")
+        effective_slot_budget_us = max(0.0, slot_budget_us - budget_deduct_us)
         carry_before = carry
-        over_budget = max(0.0, delay_us - slot_budget_us)
-        carry = max(0.0, carry + delay_us - slot_budget_us)
+        over_budget = max(0.0, delay_us - effective_slot_budget_us)
+        carry = max(0.0, carry + delay_us - effective_slot_budget_us)
         out.append(
             {
                 "abs_slot": abs_slot,
@@ -271,13 +337,18 @@ def build_source_timeline_rows(
                 "frame": row["frame"],
                 "slot": row["slot"],
                 "delay_us": delay_us,
-                "slot_budget_us": slot_budget_us,
+                "slot_budget_us": effective_slot_budget_us,
+                "base_slot_budget_us": slot_budget_us,
+                "budget_deduct_us": budget_deduct_us,
+                "budget_deduct_raw_us": row.get("budget_deduct_raw_us", 0.0),
+                "budget_deduct_mode": budget_deduct_mode,
                 "over_budget_us": over_budget,
                 "carry_before_us": carry_before,
                 "carry_after_us": carry,
                 "source_row_count": row["source_row_count"],
-                "stress_level": most_common(row["stress_level_values"]),
-                "stress_label": most_common(row["stress_label_values"]),
+                "stress_level": row.get("stress_level", ""),
+                "stress_label": row.get("stress_label", ""),
+                **{f"budget_deduct_{col}": row.get(f"budget_deduct_{col}", 0.0) for col in budget_deduct_cols},
             }
         )
     return out
@@ -346,6 +417,11 @@ def build_scheduled_samples(
             **row,
             "source_delay_us": timeline["delay_us"],
             "source_over_budget_us": timeline["over_budget_us"],
+            "source_base_slot_budget_us": timeline.get("base_slot_budget_us", timeline.get("slot_budget_us", "")),
+            "source_slot_budget_us": timeline.get("slot_budget_us", ""),
+            "source_budget_deduct_us": timeline.get("budget_deduct_us", ""),
+            "source_budget_deduct_raw_us": timeline.get("budget_deduct_raw_us", ""),
+            "source_budget_deduct_mode": timeline.get("budget_deduct_mode", ""),
             "carry_before_us": timeline["carry_before_us"],
             "carry_after_us": timeline["carry_after_us"],
             "source_timeline_stress_level": timeline.get("stress_level", ""),
@@ -868,6 +944,13 @@ def main() -> None:
     parser.add_argument("--cost-cols", default=DEFAULT_COST_COLS, help="Comma-separated source slot timing cost columns")
     parser.add_argument("--features", default=DEFAULT_FEATURES, help="Comma-separated sample features to scan")
     parser.add_argument("--slot-budget-us", type=float, default=500.0, help="Per-slot processing budget in us")
+    parser.add_argument("--budget-deduct-cols", default="", help="Comma-separated source slot timing columns to subtract from --slot-budget-us before carry accumulation")
+    parser.add_argument(
+        "--budget-deduct-mode",
+        choices=["none", "per-slot", "state-p50", "state-p75", "state-p95"],
+        default="per-slot",
+        help="How to apply --budget-deduct-cols: per source slot, or by stress-state percentile",
+    )
     parser.add_argument("--objective", choices=["f1", "youden"], default="f1", help="Threshold selection objective")
     parser.add_argument("--min-precision-for-recall-line", type=float, default=0.8, help="High-recall line must satisfy at least this precision")
     parser.add_argument("--min-recall-for-precision-line", type=float, default=0.8, help="High-precision line must satisfy at least this recall")
@@ -884,6 +967,7 @@ def main() -> None:
 
     decoding_rows, not_detected_rows, slot_timing_rows = resolve_inputs(args)
     cost_cols = parse_csv_list(args.cost_cols)
+    budget_deduct_cols = parse_optional_csv_list(args.budget_deduct_cols)
     features = parse_csv_list(args.features)
     target_filters: Dict[str, Any] = {}
     if args.target_mcs is not None:
@@ -893,7 +977,13 @@ def main() -> None:
     if args.target_nb_symbol is not None:
         target_filters["nb_symbol"] = args.target_nb_symbol
 
-    timeline_rows = build_source_timeline_rows(slot_timing_rows, cost_cols, args.slot_budget_us)
+    timeline_rows = build_source_timeline_rows(
+        slot_timing_rows,
+        cost_cols,
+        args.slot_budget_us,
+        budget_deduct_cols,
+        args.budget_deduct_mode,
+    )
     timeline_by_abs_slot = {int(row["abs_slot"]): row for row in timeline_rows}
     samples = build_scheduled_samples(decoding_rows, not_detected_rows, timeline_by_abs_slot, target_filters)
     if not samples:
@@ -947,7 +1037,8 @@ def main() -> None:
     print(f"state summary:  {len(state_summary_rows)} -> {state_summary_csv}")
     print(f"html:           {html_path}")
     print(f"source cost:    {' + '.join(cost_cols)}")
-    print(f"slot budget:    {args.slot_budget_us:.2f} us")
+    print(f"slot budget:    {args.slot_budget_us:.2f} us base")
+    print(f"budget deduct:  {(' + '.join(budget_deduct_cols)) if budget_deduct_cols else 'none'} ({args.budget_deduct_mode})")
     print(f"target filters: {target_filters or 'none'}")
     if threshold:
         print(
