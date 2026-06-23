@@ -64,6 +64,22 @@ RE_RU_FEP_COST = re.compile(
     r"(?:,\s*stress_level=(?P<stress_level>[A-Za-z0-9_+-]+),\s*stress_type=(?P<stress_type>[A-Za-z0-9_+./-]+))?\)",
     re.IGNORECASE,
 )
+RE_FEPTX_TP_COST = re.compile(
+    r"\[nr_feptx_tp\]\s*"
+    r"(?P<frame>\d+)\.(?P<slot>\d+)\s*:\s*"
+    r"nr_feptx_task_work_sum\s+costs\s+"
+    r"(?P<cost>[0-9]+(?:\.[0-9]+)?)\s*us\s*"
+    r"\((?P<tasks>[0-9]+)\s+tasks\)",
+    re.IGNORECASE,
+)
+RE_LDPC_ENCODER_TP_COST = re.compile(
+    r"\[nrLDPC_coding_encoder\]\s*"
+    r"(?P<frame>\d+)\.(?P<slot>\d+)\s*:\s*"
+    r"ldpc8blocks_task_work_sum\s+costs\s+"
+    r"(?P<cost>[0-9]+(?:\.[0-9]+)?)\s*us\s*"
+    r"\((?P<tasks>[0-9]+)\s+tasks\)",
+    re.IGNORECASE,
+)
 RE_COST = re.compile(
     r"\[rx_func\].*ulsch_decoding\s+costs\s+([0-9]+(?:\.[0-9]+)?)\s*us",
     re.IGNORECASE,
@@ -134,6 +150,8 @@ RX_FUNC_TIMING_TO_COL = {
     "rxfunc": "rxfunc_cost",
     "pusch_rx_fft_task_work_sum": "pusch_rx_fft_task_work_sum_cost",
     "ru_rx_fft_task_work_sum": "ru_rx_fft_task_work_sum_cost",
+    "nr_feptx_task_work_sum": "tx_threadpool_sum_us",
+    "ldpc8blocks_task_work_sum": "ldpc8blocks_task_work_sum_cost",
 }
 RX_FUNC_TIMING_COLUMNS = list(RX_FUNC_TIMING_TO_COL.values())
 SLOT_TIMING_EXTRA_COLUMNS = [
@@ -143,6 +161,25 @@ SLOT_TIMING_EXTRA_COLUMNS = [
     "ru_fep_stress_level",
     "ru_fep_stress_type",
     "ru_fep_line_no",
+    "ru_fep_exec_sum_us",
+    "ru_fep_exec_events",
+    "ru_fep_exec_task_count_sum",
+    "ru_fep_exec_target_slots",
+    "ru_fep_exec_target_lag_slots",
+    "ru_fep_exec_first_line_no",
+    "ru_fep_exec_last_line_no",
+    "tx_threadpool_task_events",
+    "tx_threadpool_task_count_sum",
+    "tx_target_slots",
+    "tx_target_lag_slots",
+    "tx_threadpool_first_line_no",
+    "tx_threadpool_last_line_no",
+    "ldpc8blocks_task_events",
+    "ldpc8blocks_task_count_sum",
+    "ldpc_encoder_target_slots",
+    "ldpc_encoder_target_lag_slots",
+    "ldpc_encoder_first_line_no",
+    "ldpc_encoder_last_line_no",
 ]
 SLOT_TIMING_COPY_COLUMNS = RX_FUNC_TIMING_COLUMNS + SLOT_TIMING_EXTRA_COLUMNS
 
@@ -289,14 +326,8 @@ def extract_strict_frame_based(log_path: str) -> Tuple[List[Dict[str, Any]], Lis
         sched_abs_slot = source_abs_slot + delta
         return sched_abs_slot // SLOT_MODULO, sched_abs_slot
 
-    def record_slot_timing(frame: int, slot: int, name: str, cost_us: float, extra: Optional[Dict[str, Any]] = None) -> None:
+    def get_or_create_slot_timing(frame: int, slot: int) -> Dict[str, Any]:
         nonlocal current_slot_timing, current_slot_timing_key, next_slot_timing_id
-        nonlocal rotation_slot, last_rotation_cost
-
-        timing_name = name.lower()
-        cost_col = RX_FUNC_TIMING_TO_COL.get(timing_name)
-        if cost_col is None:
-            return
 
         segment_id = int(current_workload.get("stress_segment_id", -1))
         key = (frame, slot, segment_id)
@@ -313,16 +344,89 @@ def extract_strict_frame_based(log_path: str) -> Tuple[List[Dict[str, Any]], Lis
             next_slot_timing_id += 1
             active_slot_timings[key] = current_slot_timing
         current_slot_timing_key = key
+        return current_slot_timing
 
-        current_slot_timing[cost_col] = cost_us
+    def record_slot_timing(frame: int, slot: int, name: str, cost_us: float, extra: Optional[Dict[str, Any]] = None) -> None:
+        nonlocal rotation_slot, last_rotation_cost
+
+        timing_name = name.lower()
+        cost_col = RX_FUNC_TIMING_TO_COL.get(timing_name)
+        if cost_col is None:
+            return
+
+        timing_row = get_or_create_slot_timing(frame, slot)
+        timing_row[cost_col] = cost_us
         if extra:
-            current_slot_timing.update(extra)
+            timing_row.update(extra)
         if cost_col == "apply_nr_rotation_rx_cost":
             if current_frame == frame and current_slot == slot:
                 rotation_slot = cost_us
             last_rotation_cost = cost_us
-        if cost_col == "rxfunc_cost":
-            flush_slot_timing()
+
+    def append_unique_csv_value(row: Dict[str, Any], key: str, value: Any) -> None:
+        value_str = str(value)
+        existing = [x for x in str(row.get(key, "")).split(",") if x]
+        if value_str not in existing:
+            existing.append(value_str)
+        row[key] = ",".join(existing)
+
+    def add_execution_threadpool_cost(
+        target_frame: int,
+        target_slot: int,
+        name: str,
+        cost_us: float,
+        task_count: int,
+        line_no: int,
+    ) -> None:
+        if current_frame is None or current_slot is None:
+            return
+        timing_row = get_or_create_slot_timing(current_frame, current_slot)
+        exec_abs_slot = int(timing_row["abs_slot"])
+        target_abs_frame = abs_frame_for_slot(target_frame, target_slot)
+        target_abs_slot = target_abs_frame * SLOT_MODULO + target_slot
+        lag_slots = target_abs_slot - exec_abs_slot
+        target_slot_label = f"{target_frame}.{target_slot}"
+
+        if name == "nr_feptx_task_work_sum":
+            timing_row["tx_threadpool_sum_us"] = float(timing_row.get("tx_threadpool_sum_us") or 0.0) + cost_us
+            timing_row["tx_threadpool_task_events"] = int(timing_row.get("tx_threadpool_task_events") or 0) + 1
+            timing_row["tx_threadpool_task_count_sum"] = int(timing_row.get("tx_threadpool_task_count_sum") or 0) + task_count
+            append_unique_csv_value(timing_row, "tx_target_slots", target_slot_label)
+            append_unique_csv_value(timing_row, "tx_target_lag_slots", lag_slots)
+            timing_row.setdefault("tx_threadpool_first_line_no", line_no)
+            timing_row["tx_threadpool_last_line_no"] = line_no
+        elif name == "ldpc8blocks_task_work_sum":
+            timing_row["ldpc8blocks_task_work_sum_cost"] = float(timing_row.get("ldpc8blocks_task_work_sum_cost") or 0.0) + cost_us
+            timing_row["ldpc8blocks_task_events"] = int(timing_row.get("ldpc8blocks_task_events") or 0) + 1
+            timing_row["ldpc8blocks_task_count_sum"] = int(timing_row.get("ldpc8blocks_task_count_sum") or 0) + task_count
+            append_unique_csv_value(timing_row, "ldpc_encoder_target_slots", target_slot_label)
+            append_unique_csv_value(timing_row, "ldpc_encoder_target_lag_slots", lag_slots)
+            timing_row.setdefault("ldpc_encoder_first_line_no", line_no)
+            timing_row["ldpc_encoder_last_line_no"] = line_no
+
+    def add_execution_ru_fep_cost(
+        target_frame: int,
+        target_slot: int,
+        cost_us: float,
+        task_count: int,
+        line_no: int,
+    ) -> None:
+        if current_frame is None or current_slot is None:
+            return
+        timing_row = get_or_create_slot_timing(current_frame, current_slot)
+        exec_abs_slot = int(timing_row["abs_slot"])
+        target_abs_frame = abs_frame_for_slot(target_frame, target_slot)
+        target_abs_slot = target_abs_frame * SLOT_MODULO + target_slot
+        lag_slots = target_abs_slot - exec_abs_slot
+        target_slot_label = f"{target_frame}.{target_slot}"
+
+        timing_row["ru_fep_exec_sum_us"] = float(timing_row.get("ru_fep_exec_sum_us") or 0.0) + cost_us
+        timing_row["ru_fep_exec_events"] = int(timing_row.get("ru_fep_exec_events") or 0) + 1
+        timing_row["ru_fep_exec_task_count_sum"] = int(timing_row.get("ru_fep_exec_task_count_sum") or 0) + task_count
+        append_unique_csv_value(timing_row, "ru_fep_exec_target_slots", target_slot_label)
+        append_unique_csv_value(timing_row, "ru_fep_exec_target_lag_slots", lag_slots)
+        timing_row.setdefault("ru_fep_exec_first_line_no", line_no)
+        timing_row["ru_fep_exec_last_line_no"] = line_no
 
     def current_slot_timing_id_for(frame: Optional[int], slot: Optional[int]) -> Optional[int]:
         if frame is None or slot is None:
@@ -431,9 +535,13 @@ def extract_strict_frame_based(log_path: str) -> Tuple[List[Dict[str, Any]], Lis
 
             m_ru_fep_cost = RE_RU_FEP_COST.search(line)
             if m_ru_fep_cost:
+                ru_fep_frame = int(m_ru_fep_cost.group("frame"))
+                ru_fep_slot_id = int(m_ru_fep_cost.group("slot"))
+                ru_fep_cost = float(m_ru_fep_cost.group("cost"))
+                ru_fep_tasks = int(m_ru_fep_cost.group("tasks"))
                 ru_fep_extra = {
-                    "pusch_rx_fft_task_work_sum_cost": float(m_ru_fep_cost.group("cost")),
-                    "pusch_rx_fft_task_count": int(m_ru_fep_cost.group("tasks")),
+                    "pusch_rx_fft_task_work_sum_cost": ru_fep_cost,
+                    "pusch_rx_fft_task_count": ru_fep_tasks,
                     "pusch_rx_fft_nb_rx": int(m_ru_fep_cost.group("nb_rx")),
                     "pusch_rx_fft_ofdm_symbol_size": int(m_ru_fep_cost.group("ofdm_symbol_size")),
                     "ru_fep_line_no": line_no,
@@ -443,11 +551,42 @@ def extract_strict_frame_based(log_path: str) -> Tuple[List[Dict[str, Any]], Lis
                 if m_ru_fep_cost.group("stress_type"):
                     ru_fep_extra["ru_fep_stress_type"] = m_ru_fep_cost.group("stress_type").upper()
                 record_slot_timing(
-                    int(m_ru_fep_cost.group("frame")),
-                    int(m_ru_fep_cost.group("slot")),
+                    ru_fep_frame,
+                    ru_fep_slot_id,
                     m_ru_fep_cost.group("name"),
-                    float(m_ru_fep_cost.group("cost")),
+                    ru_fep_cost,
                     ru_fep_extra,
+                )
+                add_execution_ru_fep_cost(
+                    ru_fep_frame,
+                    ru_fep_slot_id,
+                    ru_fep_cost,
+                    ru_fep_tasks,
+                    line_no,
+                )
+                continue
+
+            m_feptx_tp_cost = RE_FEPTX_TP_COST.search(line)
+            if m_feptx_tp_cost:
+                add_execution_threadpool_cost(
+                    int(m_feptx_tp_cost.group("frame")),
+                    int(m_feptx_tp_cost.group("slot")),
+                    "nr_feptx_task_work_sum",
+                    float(m_feptx_tp_cost.group("cost")),
+                    int(m_feptx_tp_cost.group("tasks")),
+                    line_no,
+                )
+                continue
+
+            m_ldpc_encoder_tp_cost = RE_LDPC_ENCODER_TP_COST.search(line)
+            if m_ldpc_encoder_tp_cost:
+                add_execution_threadpool_cost(
+                    int(m_ldpc_encoder_tp_cost.group("frame")),
+                    int(m_ldpc_encoder_tp_cost.group("slot")),
+                    "ldpc8blocks_task_work_sum",
+                    float(m_ldpc_encoder_tp_cost.group("cost")),
+                    int(m_ldpc_encoder_tp_cost.group("tasks")),
+                    line_no,
                 )
                 continue
 
@@ -955,6 +1094,7 @@ def extract_strict_frame_based(log_path: str) -> Tuple[List[Dict[str, Any]], Lis
                     "worst_rb_power_db": None,
                     "worst_rb_noise_db": None,
                     "slot_timing_id": current_slot_timing_id_for(frame, slot),
+                    "not_detected_line_no": line_no,
                     "id": next_id,
                 }
                 not_detected_rows.append(row_with_workload(row, current_workload))
@@ -968,6 +1108,26 @@ def extract_strict_frame_based(log_path: str) -> Tuple[List[Dict[str, Any]], Lis
         for row in slot_timing_rows
         if row.get("timing_id") is not None
     }
+    # Aggregate the work-sum decode cost (codeblock_decode_cost_sum) per slot back
+    # into slot_timings, keyed by slot_timing_id = the slot where decoding ACTUALLY
+    # ran (current_decoding frame.slot), NOT source_abs_slot which is the earlier
+    # DCI-prep slot. Keying by source_abs_slot would shift the carry timeline by k
+    # slots. This lets the backlog analyzer use a true work-sum cost column instead
+    # of the wall-clock ulsch_decoding_cost. Slots with no decode get 0.0 (no decode
+    # work that slot), so the column is present on every slot_timings row.
+    for timing_row in slot_timing_rows:
+        timing_row.setdefault("codeblock_decode_cost_sum", 0.0)
+    for drow in decoding_rows:
+        timing_row = slot_timing_by_id.get(drow.get("slot_timing_id"))
+        if timing_row is None:
+            continue
+        cb = drow.get("codeblock_decode_cost_sum")
+        if cb in (None, ""):
+            continue
+        try:
+            timing_row["codeblock_decode_cost_sum"] += float(cb)
+        except (TypeError, ValueError):
+            continue
     slot_timing_lookup: Dict[Tuple[Any, Any, Any], Optional[Dict[str, Any]]] = {}
     for timing_row in slot_timing_rows:
         key = (timing_row.get("frame"), timing_row.get("slot"), timing_row.get("stress_segment_id"))
@@ -1223,6 +1383,7 @@ def summarize_decode_counts(
 
 
 def export_csv(path: str, rows: List[Dict[str, Any]]) -> None:
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
     if not rows:
         print(f"[WARN] no rows to write: {path}")
         return
