@@ -66,6 +66,7 @@ venv/
 nginx/
 osjitter/
 python_scripts/output/
+python_scripts/threshold_test/
 doc/paper_vran_sched/
 automation/automation/
 automation/runs
