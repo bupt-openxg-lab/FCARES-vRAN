@@ -1,0 +1,126 @@
+{
+  "baseline": {
+    "count": 48584,
+    "mad": 0.3400000000000034,
+    "max": 89.24,
+    "mean": 41.4995525275811,
+    "median": 41.32,
+    "min": 39.33,
+    "p90": 42.32,
+    "p95": 42.76,
+    "p99": 44.47,
+    "robust_sigma": 0.5040840000000051,
+    "std": 1.0092883952034593
+  },
+  "baseline_inputs": [
+    "python_scripts/toy_experiment/p93.csv",
+    "python_scripts/toy_experiment/p123.csv",
+    "python_scripts/toy_experiment/p153.csv",
+    "python_scripts/toy_experiment/p183.csv",
+    "python_scripts/toy_experiment/p213.csv",
+    "python_scripts/toy_experiment/p243.csv",
+    "python_scripts/toy_experiment/p273.csv"
+  ],
+  "baseline_label_col": "stress_level",
+  "baseline_label_values": [
+    "NO_CACHE"
+  ],
+  "bias": [
+    -2.5528088235302757,
+    3.304964085241122,
+    -2.2180197343847357,
+    1.4658644726739065
+  ],
+  "feature_cols": [
+    "fft_mean_w1",
+    "fft_median_w1",
+    "fft_p90_w1",
+    "fft_max_w1",
+    "fft_delta_median_w1",
+    "fft_abnormal_ratio_w1"
+  ],
+  "feature_window": 1,
+  "fft_col": "pusch_rx_fft_task_work_sum_cost",
+  "label_col": "stress_level",
+  "model_type": "logistic_regression",
+  "ordered_states": [
+    "NO_CACHE",
+    "LOW",
+    "MED",
+    "XXHIGH"
+  ],
+  "standardization_mean": [
+    46.531726318860514,
+    46.531726318860514,
+    46.531726318860514,
+    46.531726318860514,
+    5.211726318860513,
+    0.46267179310847845
+  ],
+  "standardization_std": [
+    6.060310548466465,
+    6.060310548466465,
+    6.060310548466465,
+    6.060310548466465,
+    6.0603105484664646,
+    0.4986046579909415
+  ],
+  "test_metrics": {
+    "accuracy": 0.8262751008897748,
+    "correct": 33988,
+    "macro_f1": 0.6194646618080877,
+    "total": 41134
+  },
+  "train_inputs": [
+    "python_scripts/toy_experiment/p93.csv",
+    "python_scripts/toy_experiment/p123.csv",
+    "python_scripts/toy_experiment/p153.csv",
+    "python_scripts/toy_experiment/p183.csv",
+    "python_scripts/toy_experiment/p213.csv",
+    "python_scripts/toy_experiment/p243.csv",
+    "python_scripts/toy_experiment/p273.csv"
+  ],
+  "weights": [
+    [
+      -1.6063561642092798,
+      0.33148011676355227,
+      0.30131718253169537,
+      0.9735588649140295
+    ],
+    [
+      -1.6063561642092798,
+      0.33148011676355227,
+      0.30131718253169537,
+      0.9735588649140295
+    ],
+    [
+      -1.6063561642092798,
+      0.33148011676355227,
+      0.30131718253169537,
+      0.9735588649140295
+    ],
+    [
+      -1.6063561642092798,
+      0.33148011676355227,
+      0.30131718253169537,
+      0.9735588649140295
+    ],
+    [
+      -1.60635616420928,
+      0.33148011676355277,
+      0.3013171825316951,
+      0.9735588649140295
+    ],
+    [
+      0.37082105704780516,
+      -0.20424513355002172,
+      -0.17235267209174476,
+      0.0057767485939619456
+    ]
+  ],
+  "windows": [
+    1,
+    20,
+    50
+  ]
+}
