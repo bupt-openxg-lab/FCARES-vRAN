@@ -70,3 +70,4 @@ python_scripts/threshold_test/
 doc/paper_vran_sched/
 automation/automation/
 automation/runs
+automation/batches/
