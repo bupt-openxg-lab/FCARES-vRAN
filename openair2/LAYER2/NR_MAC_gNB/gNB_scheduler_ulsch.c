@@ -2187,10 +2187,11 @@ static void pf_ul(module_id_t module_id,
           frame, slot, target_mcs, nrmac->ul_mcs_scan_current_rb);
       sched_pusch->mcs = min(target_mcs, max_mcs);
       sched_ctrl->ul_bler_stats.mcs = sched_pusch->mcs;
-    } else if (bo->harq_round_max == 1) {
-      sched_pusch->mcs = max_mcs;
-      sched_ctrl->ul_bler_stats.mcs = sched_pusch->mcs;
     } else {
+      /* Always use BLER-based OLLA outside of MCS-scan mode. Previously
+       * harq_round_max==1 (HARQ disabled / single-shot) pinned MCS to max_mcs
+       * because the retx-ratio BLER signal is then always 0; OLLA ramps to the
+       * same ceiling but keeps every scheduler on one uniform adaptation path. */
       sched_pusch->mcs = get_mcs_from_bler(bo, stats, &sched_ctrl->ul_bler_stats, max_mcs, frame);
       LOG_W(NR_MAC,"%d.%d starting mcs %d bleri %f,bo->max_mcs = %d\n", frame, slot, sched_pusch->mcs, sched_ctrl->ul_bler_stats.bler,bo->max_mcs);
     }
