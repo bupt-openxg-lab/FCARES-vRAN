@@ -84,6 +84,15 @@ static void hcs_mac_tbs_cb(int nb_rb, int nb_symbol, int mcs, int round,
   *out_CodeBlocks = (int)hcs_num_cb_from_tbs(tbs_bytes, c->R);
 }
 
+/* HCS static-cap baseline: per-state fixed PRB cap (τ=5% timeout, max throughput),
+ * tuned on the PRB sweep (python_scripts/train_static_per_state_cap.py).
+ * Used only when hcs_static_cap=1; to retune just edit these three values. */
+static const int hcs_static_cap_rb[HCS_STATE_COUNT] = {
+  [HCS_STATE_NO_CACHE] = 243,
+  [HCS_STATE_LOW]      = 243,
+  [HCS_STATE_XXHIGH]   = 193,
+};
+
 static double hcs_predict_grant_us(const gNB_MAC_INST *nrmac,
                                    const NR_sched_pusch_t *sched_pusch,
                                    int round,
@@ -2469,13 +2478,20 @@ static void pf_ul(module_id_t module_id,
                                           (double)hcs_round,
                                           hcs_req_cb,
                                           nrmac->hcs_q_idx);
-      int hcs_rb = hcs_select_prb(&nrmac->hcs_backlog, (hcs_state_t)nrmac->hcs_state,
-                                  sched_pusch->mcs, sched_pusch->tda_info.nrOfSymbols, hcs_round,
-                                  (int)max_rbSize, (int)min_rb, nrmac->hcs_q_idx,
-                                  hcs_mac_tbs_cb, &hcs_cbctx);
+      int hcs_rb;
+      if (nrmac->hcs_static_cap) {
+        /* baseline: per-state fixed cap (no backlog feedback); only reduces, never raises */
+        hcs_rb = hcs_static_cap_rb[nrmac->hcs_state];
+      } else {
+        hcs_rb = hcs_select_prb(&nrmac->hcs_backlog, (hcs_state_t)nrmac->hcs_state,
+                                sched_pusch->mcs, sched_pusch->tda_info.nrOfSymbols, hcs_round,
+                                (int)max_rbSize, (int)min_rb, nrmac->hcs_q_idx,
+                                hcs_mac_tbs_cb, &hcs_cbctx);
+      }
       if (hcs_rb > 0 && hcs_rb < (int)max_rbSize) {
-        LOG_W(NR_MAC, "[HCS] %d.%d: backlog=%.0fus state=%d cap max_rbSize %d->%d\n",
-              sched_frame, sched_slot, hcs_backlog_get(&nrmac->hcs_backlog),
+        LOG_W(NR_MAC, "[HCS] %d.%d: %s backlog=%.0fus state=%d cap max_rbSize %d->%d\n",
+              sched_frame, sched_slot, nrmac->hcs_static_cap ? "static_cap" : "backlog",
+              hcs_backlog_get(&nrmac->hcs_backlog),
               nrmac->hcs_state, (int)max_rbSize, hcs_rb);
         hcs_cap_rb = hcs_rb;
         max_rbSize = hcs_rb;
