@@ -157,6 +157,10 @@ static void hcs_advance_slot(gNB_MAC_INST *nrmac, frame_t frame, int slot)
       hcs_classifier_push(&nrmac->hcs_clf, f);
   }
 
+  /* 先更新 state, 再 drain: bias 用最新分类 (state 变化通常缓慢, 用最新代表过去 N 个 slot OK) */
+  int interf = hcs_classifier_interf(&nrmac->hcs_clf);
+  nrmac->hcs_state = (interf >= 0) ? (int)hcs_interf_to_state(interf) : (int)HCS_STATE_NO_CACHE;
+
   const int slots_per_frame = nrmac->frame_structure.numb_slots_frame;
   const int abs_slot = (int)frame * slots_per_frame + slot;
   if (nrmac->hcs_backlog_last_abs_slot < 0) {
@@ -167,15 +171,17 @@ static void hcs_advance_slot(gNB_MAC_INST *nrmac, frame_t frame, int slot)
       delta += MAX_FRAME_NUMBER * slots_per_frame;
     if (delta > 0) {
       double before = hcs_backlog_get(&nrmac->hcs_backlog);
-      hcs_backlog_drain_slots(&nrmac->hcs_backlog, delta);
+      hcs_backlog_drain_range(&nrmac->hcs_backlog,
+                              nrmac->hcs_backlog_last_abs_slot, abs_slot,
+                              slots_per_frame, (hcs_state_t)nrmac->hcs_state,
+                              nrmac->hcs_bias_q_idx);
       nrmac->hcs_backlog_last_abs_slot = abs_slot;
-      LOG_D(NR_MAC, "[HCS] %d.%d: drain_slots=%d backlog %.0fus->%.0fus\n",
-            frame, slot, delta, before, hcs_backlog_get(&nrmac->hcs_backlog));
+      LOG_D(NR_MAC, "[HCS] %d.%d: drain_range delta=%d state=%d bias_q=%d backlog %.0fus->%.0fus\n",
+            frame, slot, delta, nrmac->hcs_state, nrmac->hcs_bias_q_idx,
+            before, hcs_backlog_get(&nrmac->hcs_backlog));
     }
   }
 
-  int interf = hcs_classifier_interf(&nrmac->hcs_clf);
-  nrmac->hcs_state = (interf >= 0) ? (int)hcs_interf_to_state(interf) : (int)HCS_STATE_NO_CACHE;
   LOG_D(NR_MAC, "[HCS] %d.%d: interf=%s state=%d backlog=%.0fus mode=%s\n",
         frame, slot, hcs_interf_name(interf >= 0 ? interf : 0), nrmac->hcs_state,
         hcs_backlog_get(&nrmac->hcs_backlog), hcs_clf_mode_name(nrmac->hcs_clf.mode));
